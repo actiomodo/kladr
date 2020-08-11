@@ -3,60 +3,67 @@ import connect as db
 from dataclasses import dataclass
 
 @dataclass
-class kladrDataClass:
-    # rr-ddd-ttt-lll-aa
-    region: str     # rr
-    district: str   # ddd
-    town: str       # ttt
-    locality: str   # lll
-    actuality: str  # aa
-    level: str      # classification level
-
-@dataclass
 class streetDataClass:
     # rr-ddd-ttt-lll-ssss-aa
-    region: str     # rr
-    district: str   # ddd
-    town: str       # ttt
-    locality: str   # lll
-    street: str     # ssss
-    actuality: str  # aa
-    level: str      # classification level
-
-def storeDataKladr(value):
-    """ decomposition code field of kladr_tbl """
-    data = kladrDataClass('', '', '', '', '', '')
-    data.region = value[:2]
-    data.district = value[2:5]
-    data.town = value[5:8]
-    data.locality = value[8:11]
-    data.actuality = value[11:]
-    data.level = max(['0', '1'][int(data.region) > 0],
-                     ['0', '2'][int(data.district) > 0],
-                     ['0', '3'][int(data.town) > 0],
-                     ['0', '4'][int(data.locality) > 0],
-                     )
-    return data
-
-def storeDataStreet(value):
-    """ decomposition code field of street_tbl """
-    data = streetDataClass('', '', '', '', '', '', '')
-    data.region = value[:2]
-    data.district = value[2:5]
-    data.town = value[5:8]
-    data.locality = value[8:11]
-    data.street = value[11:15]
-    data.actuality = value[15:]
-    data.level = '5'
-    return data
-
+    region: str = '00'      # rr
+    district: str = '000'   # ddd
+    town: str = '000'       # ttt
+    locality: str = '000'   # lll
+    street: str = '0000'    # ssss
+    actuality: str = '00'   # aa
+    level: str = '0'        # classification level
+    
+    def set(self, value):
+        """ decomposition code field of street_tbl """
+        self.region = value[:2]
+        self.district = value[2:5]
+        self.town = value[5:8]
+        self.locality = value[8:11]
+        self.street = value[11:15]
+        self.actuality = value[15:]
+        self.level = '5'
+        return self
+    
+@dataclass
+class kladrDataClass:
+    # rr-ddd-ttt-lll-aa
+    region: str = '00'      # rr
+    district: str = '000'   # ddd
+    town: str = '000'       # ttt
+    locality: str = '000'   # lll
+    actuality: str = '00'   # aa
+    level: str = '0'        # classification level
+    
+    def __str__(self):
+        return '-'.join([self.region, self.district, self.town, self.locality,
+                         self.actuality, self.level
+                         ])
+        
+    def getCode(self):
+        return ''.join([self.region, self.district, self.town, self.locality,
+                         self.actuality
+                         ])
+        
+    def set(self, value):
+        """ decomposition code field of kladr_tbl """
+        self.region = value[:2]
+        self.district = value[2:5]
+        self.town = value[5:8]
+        self.locality = value[8:11]
+        self.actuality = value[11:]
+        self.level = max(['0', '1'][int(self.region) > 0],
+                         ['0', '2'][int(self.district) > 0],
+                         ['0', '3'][int(self.town) > 0],
+                         ['0', '4'][int(self.locality) > 0],
+                         )
+        return self
 
 def getInfoKladr():
     """ query data """
     query = """
         SELECT *
         FROM kladr_tbl
-        LIMIT 5
+        LIMIT 1
     """
     conn = None
     try:
@@ -70,6 +77,13 @@ def getInfoKladr():
             rowValues = [row[desc] for desc in row]
             print(rowValues)
             print(storeDataKladr(row['code']))
+            dataKladr = kladrDataClass()
+            dataKladr.town='111'
+            print(dataKladr)
+            print(dataKladr.getCode())
+            dataKladr.set(row['code'])
+            print(dataKladr)
+            print(dataKladr.getCode())
         cur.close()
     except (Exception, db.psycopg2.DatabaseError) as error:
         print(error)
@@ -139,7 +153,8 @@ def codeKladrDecomposition():
         cur.execute(query)
         for row in db.iterRow(cur, 10):
             rowValues = [row[desc] for desc in row]
-            dataKladr = storeDataKladr(row['code'])
+            dataKladr = kladrDataClass()
+            dataKladr.set(row['code'])
             valuesToInsert = [row['code'], 
                               dataKladr.region, dataKladr.district, 
                               dataKladr.town, dataKladr.locality, 
@@ -182,6 +197,6 @@ if __name__ == '__main__':
         LIMIT 10
     """
     #db.getInfo(query)
-    #getInfoKladr()
+    getInfoKladr()
     #getInfoStreet()
-    codeKladrDecomposition()
+    #codeKladrDecomposition()
