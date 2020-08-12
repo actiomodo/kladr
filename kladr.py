@@ -29,10 +29,33 @@ class streetDataClass:
                          self.street, self.actuality, self.level
                          ])
         
+    def getRegion(self):
+        return ''.join([self.region] + ['0']*17)[:17]
+    
+    def getDistrict(self):
+        return ''.join([self.region, self.district] + ['0']*17)[:17]
+    
+    def getTown(self):
+        return ''.join([self.region, self.district, self.town] + ['0']*17
+                       )[:17]
+    
+    def getLocality(self):
+        return ''.join([self.region, self.district, self.town, 
+                        self.locality] + ['0']*17
+                       )[:17]
+    
+    def getStreet(self):
+        return ''.join([self.region, self.district, self.town, 
+                        self.locality, self.street] + ['0']*17
+                       )[:17]
+    
     def getCode(self):
         return ''.join([self.region, self.district, self.town, self.locality,
                          self.street, self.actuality
                          ])
+        
+    def getCodeWithoutActuality(self):
+        return self.getCode()[:-2]
         
     def setValue(self, value, indent):
         if not isinstance(value, int):
@@ -56,27 +79,34 @@ class kladrDataClass:
                          self.actuality, self.level
                          ])
         
+    def set(self, valueCode):
+        """ decomposition code field of kladr_tbl """
+        self.region = valueCode[:2]
+        self.district = valueCode[2:5]
+        self.town = valueCode[5:8]
+        self.locality = valueCode[8:11]
+        self.actuality = valueCode[11:]
+        self.level = max(['0', '1'][int(self.region) > 0],
+                         ['0', '2'][int(self.district) > 0],
+                         ['0', '3'][int(self.town) > 0],
+                         ['0', '4'][int(self.locality) > 0],
+                         )
+
     def getRegion(self):
-        return ''.join([self.region] + ['0']*15)[:13]
+        return ''.join([self.region] + ['0']*13)[:13]
     
     def getDistrict(self):
-        return ''.join([self.region, self.district] + ['0']*15)[:13]
+        return ''.join([self.region, self.district] + ['0']*13)[:13]
     
     def getTown(self):
-        return ''.join([self.region, self.district, 
-                        self.town] + ['0']*15
+        return ''.join([self.region, self.district, self.town] + ['0']*13
                        )[:13]
     
     def getLocality(self):
         return ''.join([self.region, self.district, self.town, 
-                        self.locality] + ['0']*15
+                        self.locality] + ['0']*13
                        )[:13]
     
-    def getOnlyCode(self):
-        return ''.join([self.region, self.district, self.town, 
-                        self.locality]
-                       )[:13]
-
     def getCode(self):
         return ''.join([self.region, self.district, self.town, self.locality,
                          self.actuality
@@ -91,19 +121,6 @@ class kladrDataClass:
         if not isinstance(indent, int):
             return '<?>'
         return ''.join(['0000', str(int(value))])[-int(indent):]
-    
-    def set(self, valueCode):
-        """ decomposition code field of kladr_tbl """
-        self.region = valueCode[:2]
-        self.district = valueCode[2:5]
-        self.town = valueCode[5:8]
-        self.locality = valueCode[8:11]
-        self.actuality = valueCode[11:]
-        self.level = max(['0', '1'][int(self.region) > 0],
-                         ['0', '2'][int(self.district) > 0],
-                         ['0', '3'][int(self.town) > 0],
-                         ['0', '4'][int(self.locality) > 0],
-                         )
         return self
 
 def getInfoKladr(testing = False):
@@ -189,7 +206,7 @@ def codeKladrDecomposition():
         """,
         """ 
         CREATE TABLE kladr_code_tbl (
-        code_id serial,
+        id serial,
         code TEXT, 
         onlycode TEXT DEFAULT '', 
         region TEXT DEFAULT '', 
@@ -210,6 +227,7 @@ def codeKladrDecomposition():
     query = """
         SELECT code
         FROM kladr_tbl
+        LIMIT 5
     """
     conn = None
     try:
@@ -227,7 +245,7 @@ def codeKladrDecomposition():
                               dataKladr.actuality, dataKladr.level]
             valuesToInsert = {
                 'code' : row['code'],
-                'onlycode' : dataKladr.getOnlyCode(), 
+                'onlycode' : dataKladr.getCodeWithoutActuality(), 
                 'region' : dataKladr.getRegion(), 
                 'district' : dataKladr.getDistrict(), 
                 'town' : dataKladr.getTown(), 
@@ -240,6 +258,70 @@ def codeKladrDecomposition():
                 (code, onlycode, region, district, town, locality, actuality, level)
                 VALUES (%(code)s, %(onlycode)s, %(region)s, %(district)s, %(town)s, 
                 %(locality)s, %(actuality)s, %(level)s)
+            """
+            db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
+        cur.close()
+    except (Exception, db.psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+
+def codeStreetDecomposition():
+    commands = (
+        """
+        DROP TABLE IF EXISTS street_code_tbl
+        """,
+        """ 
+        CREATE TABLE street_code_tbl (
+        id serial,
+        code TEXT, 
+        onlycode TEXT DEFAULT '', 
+        region TEXT DEFAULT '', 
+        district TEXT DEFAULT '', 
+        town TEXT DEFAULT '', 
+        locality TEXT DEFAULT '', 
+        street TEXT DEFAULT '', 
+        actuality TEXT DEFAULT '', 
+        level TEXT DEFAULT ''
+        )
+        """)
+    db.executeCommand(commands)
+    """ query data """
+    query = """
+        SELECT code
+        FROM street_tbl
+        LIMIT 5
+    """
+    query = """
+        SELECT code
+        FROM street_tbl
+    """
+    conn = None
+    try:
+        params = db.config()
+        conn = db.psycopg2.connect(**params)
+        cur = conn.cursor(cursor_factory = db.RealDictCursor)
+        cur.execute(query)
+        for row in db.iterRow(cur, 10):
+            dataStreet = streetDataClass()
+            dataStreet.set(row['code'])
+            valuesToInsert = {
+                'code' : row['code'],
+                'onlycode' : dataStreet.getCodeWithoutActuality(), 
+                'region' : dataStreet.getRegion(), 
+                'district' : dataStreet.getDistrict(), 
+                'town' : dataStreet.getTown(), 
+                'locality' : dataStreet.getLocality(), 
+                'street' : dataStreet.getStreet(), 
+                'actuality' : dataStreet.actuality, 
+                'level' : dataStreet.level
+            }
+            queryInsert = """
+                INSERT INTO street_code_tbl 
+                (code, onlycode, region, district, town, locality, street, actuality, level)
+                VALUES (%(code)s, %(onlycode)s, %(region)s, %(district)s, %(town)s, 
+                %(locality)s, %(street)s, %(actuality)s, %(level)s)
             """
             db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
         cur.close()
@@ -266,4 +348,5 @@ if __name__ == '__main__':
     #db.getInfo(query)
     #getInfoKladr()
     #getInfoStreet()
-    codeKladrDecomposition()
+    #codeKladrDecomposition()
+    codeStreetDecomposition()
