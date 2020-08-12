@@ -1,4 +1,5 @@
 database.ini
+import.txt
 *.pyc
 *.pem
 *.pub
