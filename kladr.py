@@ -1,4 +1,5 @@
 import connect as db
+import datetime
 
 from dataclasses import dataclass
 
@@ -277,6 +278,142 @@ def codeKladrDecomposition():
         if conn is not None:
             conn.close()
 
+def createStreetList():
+    commands = (
+        """
+        DROP TABLE IF EXISTS street_list_tbl
+        """,
+        """ 
+        CREATE TABLE street_list_tbl (
+        id serial,
+        code TEXT, 
+        street TEXT DEFAULT '', 
+        houses TEXT DEFAULT '' 
+        )
+        """,
+        """
+        DROP TABLE IF EXISTS house_list_tbl
+        """,
+        """ 
+        CREATE TABLE house_list_tbl (
+        id serial,
+        code TEXT, 
+        street TEXT DEFAULT '', 
+        houses TEXT DEFAULT '' 
+        )
+        """)
+    db.executeCommand(commands)
+    """ query data """
+    query = """
+        SELECT s.code, 
+        k1.socr AS region_s, sb1.socrname AS region_sn, k1.name AS region_name, 
+        k2.socr AS district_s, sb2.socrname AS district_sn, k2.name AS district_name, 
+        k3.socr AS town_s, sb3.socrname AS town_sn, k3.name AS town_name, 
+        k4.socr AS locality_s, sb4.socrname AS locality_sn, k4.name AS locality_name, 
+        s1.socr AS street_s, sb5.socrname AS street_sn, s1.name AS street_name 
+        FROM street_code_tbl AS s
+            LEFT JOIN street_tbl AS s1 ON s.code = s1.code 
+               LEFT JOIN socrbase_tbl AS sb5 ON s1.socr = sb5.scname AND sb5.level = '5' 
+            LEFT JOIN kladr_tbl AS k1 ON s.region = k1.code
+               LEFT JOIN socrbase_tbl AS sb1 ON k1.socr = sb1.scname AND sb1.level = '1' 
+            LEFT JOIN kladr_tbl AS k2 ON s.district = k2.code
+               LEFT JOIN socrbase_tbl AS sb2 ON k2.socr = sb2.scname AND sb2.level = '2' 
+            LEFT JOIN kladr_tbl AS k3 ON s.town = k3.code
+               LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
+            LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
+               LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4' 
+        WHERE s.code LIKE '77%'
+    """
+        #LIMIT 1000
+    conn = None
+    notFound = 0
+    try:
+        params = db.config()
+        conn = db.psycopg2.connect(**params)
+        cur = conn.cursor(cursor_factory = db.RealDictCursor)
+        cur.execute(query)
+        try:
+            f = open('streets.txt', 'w')
+        finally:
+            f.close()
+        for row in db.iterRow(cur, 10):
+            houses = '' #getHousesByStreet(row['code'])
+            if False: #len(houses) == 0:
+                notFound += 1
+            else:
+                street = ', '.join([
+                    convertToStr(row['region_sn'], row['region_name']),
+                    convertToStr(row['district_sn'], row['district_name']),
+                    convertToStr(row['town_sn'], row['town_name']),
+                    convertToStr(row['locality_sn'], row['locality_name']),
+                    convertToStr(row['street_sn'], row['street_name'])
+                    ]).replace(',,', ',').replace(', ,', ',')
+                street = street.replace(', ,', ',')
+                valuesToInsert = {
+                    'code' : row['code'],
+                    'street' : street, 
+                    'houses' : houses
+                }
+                queryInsert = """
+                    INSERT INTO house_list_tbl 
+                    (code, street, houses)
+                    VALUES (%(code)s, %(street)s, %(houses)s)
+                """
+                #db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
+                queryInsert = """
+                    INSERT INTO street_list_tbl 
+                    (code, street)
+                    VALUES (%(code)s, %(street)s)
+                """
+                db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
+                with open('streets.txt', 'a') as f:
+                    f.write(''.join([street, '\n']))
+        cur.close()
+    except (Exception, db.psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+    print(f'notFound: {notFound}')
+
+def convertToStr(value_low, value):
+    res_low = [value_low, ''][value_low == None]
+    res_low = res_low.lower()
+    res = [value, ''][value == None]
+    ret = res
+    if res_low not in res.split(' '):
+        if res_low in ['проезд', 'тупик', 'аллея', 'проспект', 'просек', 'бульвар',
+                       'квартал']:
+            ret = ' '.join([res, res_low])
+        else:
+            ret = ' '.join([res_low, res])
+    return ret
+    
+def getHousesByStreet(code):
+    """ query data """
+    query = """
+        SELECT * FROM doma_tbl 
+        WHERE code LIKE %(code)s 
+        LIMIT 50
+    """
+    queryParameters = {'code': ''.join([code, '%'])}
+    conn = None
+    res = []
+    try:
+        params = db.config()
+        conn = db.psycopg2.connect(**params)
+        cur = conn.cursor(cursor_factory = db.RealDictCursor)
+        cur.execute(query, queryParameters)
+        for row in db.iterRow(cur, 10):
+            res += row['name'].split(',')
+        cur.close()
+    except (Exception, db.psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+    return ','.join(res)
+    
 def codeStreetDecomposition():
     commands = (
         """
@@ -361,3 +498,6 @@ if __name__ == '__main__':
     #getInfoStreet()
     #codeKladrDecomposition()
     #codeStreetDecomposition()
+    timeStart = datetime.datetime.today()
+    createStreetList()
+    print(f'execution time: {datetime.datetime.today() - timeStart}')
