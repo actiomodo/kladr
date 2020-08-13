@@ -29,30 +29,44 @@ class streetDataClass:
                          self.street, self.actuality, self.level
                          ])
         
+    def getCodeWidth(self):
+        return 13
+    
     def getRegion(self):
-        return ''.join([self.region] + ['0']*17)[:17]
+        if self.region == '00':
+            info = ['0'] * self.getCodeWidth()
+        else:
+            info = [self.region]
+        return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getDistrict(self):
-        return ''.join([self.region, self.district] + ['0']*17)[:17]
+        if self.district == '000':
+            info = ['0'] * self.getCodeWidth()
+        else:
+            info = [self.region, self.district]
+        return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getTown(self):
-        return ''.join([self.region, self.district, self.town] + ['0']*17
-                       )[:17]
+        if self.town == '000':
+            info = ['0'] * self.getCodeWidth()
+        else:
+            info = [self.region, self.district, self.town]
+        return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getLocality(self):
-        return ''.join([self.region, self.district, self.town, 
-                        self.locality] + ['0']*17
-                       )[:17]
+        if self.locality == '000':
+            info = ['0'] * self.getCodeWidth()
+        else:
+            info = [self.region, self.district, self.town, self.locality]
+        return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getStreet(self):
-        return ''.join([self.region, self.district, self.town, 
-                        self.locality, self.street] + ['0']*17
-                       )[:17]
+        info = [self.region, self.district, self.town, self.locality]
+        return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getCode(self):
         return ''.join([self.region, self.district, self.town, self.locality,
-                         self.street, self.actuality
-                         ])
+                         self.street, self.actuality])
         
     def getCodeWithoutActuality(self):
         return self.getCode()[:-2]
@@ -239,10 +253,6 @@ def codeKladrDecomposition():
             rowValues = [row[desc] for desc in row]
             dataKladr = kladrDataClass()
             dataKladr.set(row['code'])
-            valuesToInsert = [row['code'], 
-                              dataKladr.region, dataKladr.district, 
-                              dataKladr.town, dataKladr.locality, 
-                              dataKladr.actuality, dataKladr.level]
             valuesToInsert = {
                 'code' : row['code'],
                 'onlycode' : dataKladr.getCodeWithoutActuality(), 
@@ -296,6 +306,7 @@ def codeStreetDecomposition():
     query = """
         SELECT code
         FROM street_tbl
+        LIMIT 5
     """
     conn = None
     try:
@@ -349,4 +360,4 @@ if __name__ == '__main__':
     #getInfoKladr()
     #getInfoStreet()
     #codeKladrDecomposition()
-    codeStreetDecomposition()
+    #codeStreetDecomposition()
