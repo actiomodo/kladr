@@ -322,8 +322,8 @@ def createStreetList():
                LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
             LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
                LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4' 
-        WHERE s.code LIKE '77%'
     """
+        #WHERE s.code LIKE '77%'
         #LIMIT 1000
     conn = None
     notFound = 0
