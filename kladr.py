@@ -279,7 +279,7 @@ def codeKladrDecomposition():
             conn.close()
 
 def createStreetList():
-    commands = (
+    commands = [
         """
         DROP TABLE IF EXISTS street_list_tbl
         """,
@@ -301,7 +301,7 @@ def createStreetList():
         street TEXT DEFAULT '', 
         houses TEXT DEFAULT '' 
         )
-        """)
+        """]
     db.executeCommand(commands)
     """ query data """
     query = """
@@ -332,15 +332,18 @@ def createStreetList():
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query)
+        """
         try:
             f = open('streets.txt', 'w')
         finally:
             f.close()
+        """
         for row in db.iterRow(cur, 10):
             houses = '' #getHousesByStreet(row['code'])
             if False: #len(houses) == 0:
                 notFound += 1
             else:
+                queries = []
                 street = ', '.join([
                     convertToStr(row['region_sn'], row['region_name']),
                     convertToStr(row['district_sn'], row['district_name']),
@@ -359,15 +362,16 @@ def createStreetList():
                     (code, street, houses)
                     VALUES (%(code)s, %(street)s, %(houses)s)
                 """
-                #db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
+                #queries.append((queryInsert, valuesToInsert))
                 queryInsert = """
                     INSERT INTO street_list_tbl 
                     (code, street)
                     VALUES (%(code)s, %(street)s)
                 """
-                db.executeCommandWithParameters([(queryInsert, valuesToInsert)])
-                with open('streets.txt', 'a') as f:
-                    f.write(''.join([street, '\n']))
+                queries.append((queryInsert, valuesToInsert))
+                db.executeCommandWithParameters(queries)
+                #with open('streets.txt', 'a') as f:
+                #    f.write(''.join([street, '\n']))
         cur.close()
     except (Exception, db.psycopg2.DatabaseError) as error:
         print(error)
@@ -376,18 +380,27 @@ def createStreetList():
             conn.close()
     print(f'notFound: {notFound}')
 
-def convertToStr(value_low, value):
-    res_low = [value_low, ''][value_low == None]
-    res_low = res_low.lower()
+def isNumberFound(value):
+    for v in list(value):
+        if v.isdigit():
+            return True
+    return False
+
+def convertToStr(valueLow, value):
+    resLow = [valueLow, ''][valueLow == None]
+    resLow = resLow.lower()
     res = [value, ''][value == None]
     ret = res
-    if res_low not in res.split(' '):
-        if res_low in ['проезд', 'тупик', 'аллея', 'проспект', 'просек', 'бульвар',
-                       'квартал']:
-            ret = ' '.join([res, res_low])
+    resSplit = res.split()
+    if resLow not in resSplit:
+        if isNumberFound(res) and len(resSplit) > 1:
+            ret = ' '.join([resSplit[1], resSplit[0], resLow])
+        elif resLow in ['проезд', 'тупик', 'аллея', 'проспект', 'просек', 'бульвар',
+                       'квартал', 'переулок', 'шоссе']:
+            ret = ' '.join([res, resLow])
         else:
-            ret = ' '.join([res_low, res])
-    return ret
+            ret = ' '.join([resLow, res])
+    return ret.strip()
     
 def getHousesByStreet(code):
     """ query data """
@@ -443,7 +456,7 @@ def codeStreetDecomposition():
     query = """
         SELECT code
         FROM street_tbl
-        LIMIT 5
+        WHERE code LIKE '77%'
     """
     conn = None
     try:
@@ -497,7 +510,9 @@ if __name__ == '__main__':
     #getInfoKladr()
     #getInfoStreet()
     #codeKladrDecomposition()
+    #timeStart = datetime.datetime.today()
     #codeStreetDecomposition()
+    #print(f'execution time: {datetime.datetime.today() - timeStart}')   
     timeStart = datetime.datetime.today()
     createStreetList()
     print(f'execution time: {datetime.datetime.today() - timeStart}')

@@ -1,6 +1,7 @@
 database.ini
 import.txt
 streets.txt
+streets_moscow.txt
 *.pyc
 *.pem
 *.pub
