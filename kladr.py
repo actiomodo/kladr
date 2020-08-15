@@ -3,6 +3,16 @@ import datetime
 
 from dataclasses import dataclass
 
+import logging
+import logging.config
+import yaml
+
+with open('l_config.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+
+logger = logging.getLogger(__name__)
+
 @dataclass
 class streetDataClass:
     # rr-ddd-ttt-lll-ssss-aa
@@ -281,14 +291,14 @@ def codeKladrDecomposition():
 def createStreetList():
     commands = [
         """
-        DROP TABLE IF EXISTS street_list_tbl
+        DROP TABLE IF EXISTS moscow_street_list_tbl
         """,
         """ 
-        CREATE TABLE street_list_tbl (
+        CREATE TABLE moscow_street_list_tbl (
         id serial,
         code TEXT, 
         street TEXT DEFAULT '', 
-        houses TEXT DEFAULT '' 
+        index TEXT DEFAULT '' 
         )
         """,
         """
@@ -310,7 +320,8 @@ def createStreetList():
         k2.socr AS district_s, sb2.socrname AS district_sn, k2.name AS district_name, 
         k3.socr AS town_s, sb3.socrname AS town_sn, k3.name AS town_name, 
         k4.socr AS locality_s, sb4.socrname AS locality_sn, k4.name AS locality_name, 
-        s1.socr AS street_s, sb5.socrname AS street_sn, s1.name AS street_name 
+        s1.socr AS street_s, sb5.socrname AS street_sn, s1.name AS street_name, 
+        s1.index 
         FROM street_code_tbl AS s
             LEFT JOIN street_tbl AS s1 ON s.code = s1.code 
                LEFT JOIN socrbase_tbl AS sb5 ON s1.socr = sb5.scname AND sb5.level = '5' 
@@ -321,9 +332,10 @@ def createStreetList():
             LEFT JOIN kladr_tbl AS k3 ON s.town = k3.code
                LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
             LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
-               LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4' 
+               LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4'
+               
+        WHERE s.code LIKE '77%'
     """
-        #WHERE s.code LIKE '77%'
         #LIMIT 1000
     conn = None
     notFound = 0
@@ -355,7 +367,8 @@ def createStreetList():
                 valuesToInsert = {
                     'code' : row['code'],
                     'street' : street, 
-                    'houses' : houses
+                    'houses' : houses,
+                    'index': row['index']
                 }
                 queryInsert = """
                     INSERT INTO house_list_tbl 
@@ -364,9 +377,9 @@ def createStreetList():
                 """
                 #queries.append((queryInsert, valuesToInsert))
                 queryInsert = """
-                    INSERT INTO street_list_tbl 
-                    (code, street)
-                    VALUES (%(code)s, %(street)s)
+                    INSERT INTO moscow_street_list_tbl 
+                    (code, street, index)
+                    VALUES (%(code)s, %(street)s, %(index)s)
                 """
                 queries.append((queryInsert, valuesToInsert))
                 db.executeCommandWithParameters(queries)
@@ -456,8 +469,8 @@ def codeStreetDecomposition():
     query = """
         SELECT code
         FROM street_tbl
-        WHERE code LIKE '77%'
     """
+        #WHERE code LIKE '77%'
     conn = None
     try:
         params = db.config()
@@ -514,5 +527,6 @@ if __name__ == '__main__':
     #codeStreetDecomposition()
     #print(f'execution time: {datetime.datetime.today() - timeStart}')   
     timeStart = datetime.datetime.today()
+    logger.debug('start createStreetList')
     createStreetList()
     print(f'execution time: {datetime.datetime.today() - timeStart}')

@@ -1,8 +1,17 @@
 import os, json
 import connect as db
 import datetime
+import logging
+import logging.config
+import yaml
 
 from flask import Flask, jsonify, request, redirect, render_template
+
+with open('l_config.yaml', 'r') as f:
+	config = yaml.safe_load(f.read())
+	logging.config.dictConfig(config)
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = "secret key"
@@ -32,14 +41,20 @@ def getStreets(code):
         LIMIT 10
     """
 	queryParameters = {'code': ''.join(['%', code, '%'])}
-	_query = """
+	query = """
         SELECT DISTINCT street, similarity(street, %(code)s) AS sml
 		FROM moscow_street_list_tbl 
-        WHERE street % %(code)s 
+        WHERE street %% %(code)s 
 		ORDER BY sml DESC, street
         LIMIT 10
     """
-	#queryParameters = {'code': code }
+	query = """
+        SELECT DISTINCT street, street <-> %(code)s AS dist
+		FROM moscow_street_list_tbl 
+		ORDER BY dist
+        LIMIT 10
+    """
+	queryParameters = {'code': code }
 	conn = None
 	res = []
 	try:
