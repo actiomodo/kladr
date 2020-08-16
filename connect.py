@@ -1,13 +1,40 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from config import config
+
+from config import configDb
+import pysnooper
+
+import logging
+import logging.config
+import yaml
+
+with open('l_config.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+
+logger = logging.getLogger(__name__)
+
+"""
+import psycopg2.extensions
+class LoggingCursor(psycopg2.extensions.cursor):
+    def execute(self, sql, args=None):
+        logger = logging.getLogger('sql_debug')
+        logger.info(self.mogrify(sql, args))
+        try:
+            psycopg2.extensions.cursor.execute(self, sql, args)
+        except Exception as exc:
+            logger.error("%s: %s" % (exc.__class__.__name__, exc))
+            raise
+conn = psycopg2.connect(DSN)
+cur = conn.cursor(cursor_factory = LoggingCursor)
+"""
 
 def executeCommandWithParameters(commands):
     """ execute command """
     conn = None
     try:
         # read the connection parameters
-        params = config()
+        params = configDb()
         # connect to the PostgreSQL server
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
@@ -24,18 +51,21 @@ def executeCommandWithParameters(commands):
         if conn is not None:
             conn.close()
 
+#@pysnooper.snoop()
 def executeCommand(commands):
     """ execute command """
     conn = None
     try:
         # read the connection parameters
-        params = config()
+        params = configDb()
         # connect to the PostgreSQL server
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         # create table one by one
         for command in commands:
+            logger.debug(f'{command[:40]}...')
             cur.execute(command)
+            logger.debug(f'{command.split()[0]} - Ok')
         # close communication with the PostgreSQL database server
         cur.close()
         # commit the changes
@@ -51,7 +81,7 @@ def connect():
     conn = None
     try:
         # read connection parameters
-        params = config()
+        params = configDb()
 
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
@@ -95,7 +125,7 @@ def getInfo(query):
     """ query data """
     conn = None
     try:
-        params = config()
+        params = configDb()
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         cur.execute(query)

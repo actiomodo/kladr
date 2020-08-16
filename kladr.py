@@ -1,17 +1,10 @@
 import connect as db
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import datetime
+import sys
 
 from dataclasses import dataclass
-
-import logging
-import logging.config
-import yaml
-
-with open('l_config.yaml', 'r') as f:
-    config = yaml.safe_load(f.read())
-    logging.config.dictConfig(config)
-
-logger = logging.getLogger(__name__)
 
 @dataclass
 class streetDataClass:
@@ -41,7 +34,7 @@ class streetDataClass:
                          ])
         
     def getCodeWidth(self):
-        return 13
+        return 17
     
     def getRegion(self):
         if self.region == '00':
@@ -158,7 +151,7 @@ def getInfoKladr(testing = False):
     """
     conn = None
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -206,7 +199,7 @@ def getInfoStreet():
     """
     conn = None
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -256,7 +249,7 @@ def codeKladrDecomposition():
     """
     conn = None
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -315,13 +308,13 @@ def createStreetList():
     db.executeCommand(commands)
     """ query data """
     query = """
-        SELECT s.code, 
+        SELECT DISTINCT s.code, 
         k1.socr AS region_s, sb1.socrname AS region_sn, k1.name AS region_name, 
         k2.socr AS district_s, sb2.socrname AS district_sn, k2.name AS district_name, 
         k3.socr AS town_s, sb3.socrname AS town_sn, k3.name AS town_name, 
         k4.socr AS locality_s, sb4.socrname AS locality_sn, k4.name AS locality_name, 
         s1.socr AS street_s, sb5.socrname AS street_sn, s1.name AS street_name, 
-        s1.index 
+        s1.index, d.name
         FROM street_code_tbl AS s
             LEFT JOIN street_tbl AS s1 ON s.code = s1.code 
                LEFT JOIN socrbase_tbl AS sb5 ON s1.socr = sb5.scname AND sb5.level = '5' 
@@ -333,14 +326,14 @@ def createStreetList():
                LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
             LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
                LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4'
-               
-        WHERE s.code LIKE '77%'
+            LEFT JOIN doma_tbl AS d ON s.code = left(d.code, 17)   
+        WHERE d.name != '' AND s.code LIKE '77%'
     """
         #LIMIT 1000
     conn = None
     notFound = 0
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query)
@@ -367,7 +360,7 @@ def createStreetList():
                 valuesToInsert = {
                     'code' : row['code'],
                     'street' : street, 
-                    'houses' : houses,
+                    'houses' : '', #houses,
                     'index': row['index']
                 }
                 queryInsert = """
@@ -426,7 +419,7 @@ def getHousesByStreet(code):
     conn = None
     res = []
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query, queryParameters)
@@ -473,7 +466,7 @@ def codeStreetDecomposition():
         #WHERE code LIKE '77%'
     conn = None
     try:
-        params = db.config()
+        params = db.configDb()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query)
@@ -505,6 +498,144 @@ def codeStreetDecomposition():
         if conn is not None:
             conn.close()
 
+def createDataTables():
+    commands = [
+        """
+        DROP TABLE IF EXISTS t_tbl;
+        """,
+        """ 
+        SELECT DISTINCT s.code, 
+        replace(replace(concat_ws(', ', concat_ws(' ', lower(sb1.scname), k1.name), 
+        concat_ws(' ', lower(sb2.scname), k2.name), 
+        concat_ws(' ', lower(sb3.scname), k3.name), 
+        concat_ws(' ', lower(sb4.scname), k4.name), 
+        concat_ws(' ', lower(sb5.scname), s1.name)), ', ,', ','), ', ,', ',') AS street_full, 
+        replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name), 
+        '  ', ' '), '  ', ' ') AS street_shot, 
+        lower(sb1.socrname) AS reg_pr, k1.name AS region, 
+        lower(sb2.socrname) AS dis_pr, k2.name AS district, 
+        lower(sb3.socrname) AS tow_pr, k3.name AS town, 
+        lower(sb4.socrname) AS loc_pr, k4.name AS locality, 
+        lower(sb5.socrname) AS str_pr, s1.name AS street, 
+        s1.index, d.name AS doma
+        INTO t_tbl                       
+        FROM street_code_tbl AS s
+            LEFT JOIN street_tbl AS s1 ON s.code = s1.code 
+                LEFT JOIN socrbase_tbl AS sb5 ON s1.socr = sb5.scname AND sb5.level = '5' 
+            LEFT JOIN kladr_tbl AS k1 ON s.region = k1.code
+                LEFT JOIN socrbase_tbl AS sb1 ON k1.socr = sb1.scname AND sb1.level = '1' 
+            LEFT JOIN kladr_tbl AS k2 ON s.district = k2.code
+                LEFT JOIN socrbase_tbl AS sb2 ON k2.socr = sb2.scname AND sb2.level = '2' 
+            LEFT JOIN kladr_tbl AS k3 ON s.town = k3.code
+                LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
+            LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
+                LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4'
+            LEFT JOIN doma_tbl AS d ON s.code = left(d.code, 17)   
+        WHERE d.name != '';
+        """,
+        """
+        DROP TABLE IF EXISTS rus_shot_tbl;
+        """,
+        """
+        SELECT DISTINCT code, 
+        index, street_full, street_shot, region, district, town, locality, street 
+        INTO rus_shot_tbl 
+        FROM t_tbl;
+        """,
+        """
+        DROP TABLE IF EXISTS rus_shot_region_tbl;
+        """,
+           """
+           SELECT DISTINCT region
+           INTO rus_shot_region_tbl 
+           FROM t_tbl;
+           """,
+              """
+              CREATE INDEX trgm_region_idx 
+              ON rus_shot_region_tbl 
+              USING gin (region gin_trgm_ops);
+              """,
+        """
+        DROP TABLE IF EXISTS rus_shot_district_tbl;
+        """,
+           """
+           SELECT DISTINCT district
+           INTO rus_shot_district_tbl 
+           FROM t_tbl;
+           """,
+              """
+              CREATE INDEX trgm_district_idx 
+              ON rus_shot_district_tbl 
+              USING gin (district gin_trgm_ops);
+              """,
+        """
+        DROP TABLE IF EXISTS rus_shot_town_tbl;
+        """,
+           """
+           SELECT DISTINCT town
+           INTO rus_shot_town_tbl 
+           FROM t_tbl;
+           """,
+              """
+              CREATE INDEX trgm_town_idx 
+              ON rus_shot_town_tbl 
+              USING gin (town gin_trgm_ops);
+              """,
+        """
+        DROP TABLE IF EXISTS rus_shot_locality_tbl;
+        """,
+           """
+           SELECT DISTINCT locality
+           INTO rus_shot_locality_tbl 
+           FROM t_tbl;
+           """,
+              """
+              CREATE INDEX trgm_locality_idx 
+              ON rus_shot_locality_tbl 
+              USING gin (locality gin_trgm_ops);
+              """,
+        """
+        DROP TABLE IF EXISTS rus_shot_street_tbl;
+        """,
+           """
+           SELECT DISTINCT street
+           INTO rus_shot_street_tbl 
+           FROM t_tbl;
+           """,
+              """
+              CREATE INDEX trgm_street_idx 
+              ON rus_shot_street_tbl 
+              USING gin (street gin_trgm_ops);
+              """,
+        """
+        DROP TABLE IF EXISTS t_tbl;
+        """,
+        """
+        ALTER TABLE rus_shot_tbl 
+        ADD COLUMN tsv tsvector;
+        """,
+        """
+        UPDATE rus_shot_tbl 
+        SET tsv = to_tsvector(street_shot);
+        """,
+        """
+        CREATE INDEX trgm_idx 
+        ON rus_shot_tbl 
+        USING gin (street_shot gin_trgm_ops);
+        """,
+        """
+        CREATE INDEX metaphone_trgm_idx 
+        ON rus_shot_tbl 
+        USING gin (metaphone(street_shot) gin_trgm_ops);
+        """,
+        """
+        CREATE INDEX rum_idx 
+        ON rus_shot_tbl 
+        USING rum (to_tsvector('simple'::regconfig, street_shot) rum_tsvector_ops);
+        """,
+    ]
+    db.executeCommand(commands)
+    
 if __name__ == '__main__':
     query = """
         SELECT *
@@ -527,6 +658,7 @@ if __name__ == '__main__':
     #codeStreetDecomposition()
     #print(f'execution time: {datetime.datetime.today() - timeStart}')   
     timeStart = datetime.datetime.today()
-    logger.debug('start createStreetList')
-    createStreetList()
+    #createStreetList()
+    #createDataTables()
     print(f'execution time: {datetime.datetime.today() - timeStart}')
+    

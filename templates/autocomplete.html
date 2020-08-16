@@ -38,11 +38,24 @@
 	</script>
 </head>
 <body>
-	<div>
+	<div class="container p-5">
 		<h2>Autocomplete Flask / PostgreSQL</h2>
 		<p style="width: 1260px; margin: auto;">
 			<label>Address</label>&nbsp;&nbsp;<input type="text" name="search" id="searchBox"/>
 		</p>
 		<button class="btn btn-primary" type="submit">Submit</button>
-	</div>
+		<form method="post">
+			<div id="div_id_first_name" class="form-group"> 
+			<label for="id_first_name" class=" requiredField">
+				First name<span class="asteriskField">*</span> 
+			</label> 
+			<div class=""> <input type="text" name="first_name" maxlength="50" class="textinput textInput form-control" required id="id_first_name"> </div> </div> <div id="div_id_last_name" class="form-group"> 
+			<label for="id_last_name" class=" requiredField">
+				Last name<span class="asteriskField">*</span> </label> 
+			<div class=""> <input type="text" name="last_name" maxlength="50" class="textinput textInput form-control" required id="id_last_name"> </div> </div> <div id="div_id_email_address" class="form-group"> <label for="id_email_address" class=" requiredField">
+				Email address<span class="asteriskField">*</span> </label> 
+			<div class=""> <input type="email" name="email_address" maxlength="150" class="emailinput form-control" required id="id_email_address"> </div> </div>
+
+			<button class="btn btn-primary" type="submit">Submit</button>
+		</form>	</div>
 </body>

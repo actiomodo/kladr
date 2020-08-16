@@ -48,7 +48,7 @@ def getStreets(code):
 		ORDER BY sml DESC, street
         LIMIT 10
     """
-	query = """
+	_query = """
         SELECT DISTINCT street, street <-> %(code)s AS dist
 		FROM moscow_street_list_tbl 
 		ORDER BY dist
@@ -61,6 +61,7 @@ def getStreets(code):
 		params = db.config()
 		conn = db.psycopg2.connect(**params)
 		cur = conn.cursor(cursor_factory = db.RealDictCursor)
+		cur.execute('SELECT set_limit(0)')
 		cur.execute(query, queryParameters)
 		for row in db.iterRow(cur, 10):
 			res.append(row['street'])
