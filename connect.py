@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from config import configDb
+from config import configDbConnection
 import pysnooper
 
 import logging
@@ -34,7 +34,7 @@ def executeCommandWithParameters(commands):
     conn = None
     try:
         # read the connection parameters
-        params = configDb()
+        params = configDbConnection()
         # connect to the PostgreSQL server
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
@@ -52,18 +52,49 @@ def executeCommandWithParameters(commands):
             conn.close()
 
 #@pysnooper.snoop()
+def createLofInfo(command):
+    command = command.strip()
+    showInfo = command[:40]
+    commandParts = command.split('DROP TABLE IF EXISTS')
+    if len(commandParts) > 1:
+        showInfo = ''.join(['DROP TABLE', commandParts[1]])
+    commandParts = command.split('CREATE INDEX')
+    if len(commandParts) > 1:
+        showInfo = ' '.join(['CREATE INDEX', commandParts[1].split()[0]])
+    commandParts = command.split('CREATE TABLE')
+    if len(commandParts) > 1:
+        showInfo = ' '.join(['CREATE TABLE', commandParts[1].split()[0].strip()])
+    commandParts = command.split('ALTER TABLE')
+    if len(commandParts) > 1:
+        showInfo = ' '.join([command.replace('\n','').split('ADD')[0].strip(), 
+                             'ADD', command.split('ADD')[1].strip()])
+    commandParts = command.split('UPDATE')
+    if len(commandParts) > 1:
+        showInfo = ' '.join([command.replace('\n','').split('SET')[0].strip(), 
+                             'SET', command.split('SET')[1].strip()])
+    commandParts = command.split('SELECT')
+    if len(commandParts) > 1:
+        distinct = ['DISTINCT', ''][command.find('DISTINCT') == -1]
+        if command.find('INTO') != -1:
+            into = ' '.join(['INTO', command.split('INTO')[1].split()[0].strip()])
+        into = [into, ''][command.find('INTO') == -1]
+        showInfo = ' '.join(['SELECT', distinct, '...', into, 
+                             'FROM', command.split('FROM')[1].split()[0].strip()])
+    return showInfo
+    
+#@pysnooper.snoop()
 def executeCommand(commands):
     """ execute command """
     conn = None
     try:
         # read the connection parameters
-        params = configDb()
+        params = configDbConnection()
         # connect to the PostgreSQL server
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         # create table one by one
         for command in commands:
-            logger.debug(f'{command[:40]}...')
+            logger.debug(f'{createLofInfo(command)}')
             cur.execute(command)
             logger.debug(f'{command.split()[0]} - Ok')
         # close communication with the PostgreSQL database server
@@ -81,7 +112,7 @@ def connect():
     conn = None
     try:
         # read connection parameters
-        params = configDb()
+        params = configDbConnection()
 
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
@@ -125,7 +156,7 @@ def getInfo(query):
     """ query data """
     conn = None
     try:
-        params = configDb()
+        params = configDbConnection()
         conn = psycopg2.connect(**params)
         cur = conn.cursor()
         cur.execute(query)

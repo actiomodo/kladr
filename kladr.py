@@ -65,7 +65,7 @@ class streetDataClass:
         return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getStreet(self):
-        info = [self.region, self.district, self.town, self.locality]
+        info = [self.region, self.district, self.town, self.locality, self.street]
         return ''.join(info + ['0'] * self.getCodeWidth())[:self.getCodeWidth()]
     
     def getCode(self):
@@ -151,7 +151,7 @@ def getInfoKladr(testing = False):
     """
     conn = None
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -199,7 +199,7 @@ def getInfoStreet():
     """
     conn = None
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -249,7 +249,7 @@ def codeKladrDecomposition():
     """
     conn = None
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory=db.RealDictCursor)
         cur.execute(query)
@@ -333,7 +333,7 @@ def createStreetList():
     conn = None
     notFound = 0
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query)
@@ -419,7 +419,7 @@ def getHousesByStreet(code):
     conn = None
     res = []
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query, queryParameters)
@@ -466,7 +466,7 @@ def codeStreetDecomposition():
         #WHERE code LIKE '77%'
     conn = None
     try:
-        params = db.configDb()
+        params = db.configDbConnection()
         conn = db.psycopg2.connect(**params)
         cur = conn.cursor(cursor_factory = db.RealDictCursor)
         cur.execute(query)
@@ -499,8 +499,37 @@ def codeStreetDecomposition():
             conn.close()
 
 def createDataTables():
+    # create command list
     commands = [
-        """
+        """ 
+        DROP TABLE IF EXISTS street_code_tbl;
+        """,
+        """ 
+        SELECT code,
+            CASE
+                WHEN substring(code, 1, 2) = '00' THEN '0000000000000'
+                ELSE concat(substring(code, 1, 2), '00000000000')
+            END 
+            AS region,
+            CASE
+                WHEN substring(code, 3, 3) = '000' THEN '0000000000000'
+                ELSE concat(substring(code, 1, 5), '00000000')
+            END 
+            AS district,
+            CASE
+                WHEN substring(code, 6, 3) = '000' THEN '0000000000000'
+                ELSE concat(substring(code, 1, 8), '00000')
+            END 
+            AS town,
+            CASE
+                WHEN substring(code, 9, 3) = '000' THEN '0000000000000'
+                ELSE concat(substring(code, 1, 11), '00')
+            END 
+            AS locality
+        INTO street_code_tbl
+        FROM street_tbl
+        """,
+        """ 
         DROP TABLE IF EXISTS t_tbl;
         """,
         """ 
@@ -533,12 +562,16 @@ def createDataTables():
             LEFT JOIN doma_tbl AS d ON s.code = left(d.code, 17)   
         WHERE d.name != '';
         """,
+        """ 
+        DROP TABLE IF EXISTS street_code_tbl;
+        """,
         """
         DROP TABLE IF EXISTS rus_shot_tbl;
         """,
         """
         SELECT DISTINCT code, 
-        index, street_full, street_shot, region, district, town, locality, street 
+        index, street_full, street_shot, reg_pr, region, dis_pr, district, 
+        tow_pr, town, loc_pr, locality, str_pr, street 
         INTO rus_shot_tbl 
         FROM t_tbl;
         """,
@@ -634,6 +667,7 @@ def createDataTables():
         USING rum (to_tsvector('simple'::regconfig, street_shot) rum_tsvector_ops);
         """,
     ]
+    # execute command list
     db.executeCommand(commands)
     
 if __name__ == '__main__':

@@ -36,21 +36,21 @@ def search():
 def getStreets(code):
 	""" query data """
 	query = """
-        SELECT DISTINCT street FROM moscow_street_list_tbl 
-        WHERE street LIKE %(code)s 
+        SELECT street_full AS street FROM msk_shot_tbl 
+        WHERE street_shot LIKE %(code)s 
         LIMIT 10
     """
 	queryParameters = {'code': ''.join(['%', code, '%'])}
 	query = """
-        SELECT DISTINCT street, similarity(street, %(code)s) AS sml
-		FROM moscow_street_list_tbl 
-        WHERE street %% %(code)s 
+        SELECT street_full AS street, similarity(street_shot, %(code)s) AS sml
+		FROM msk_shot_tbl 
+        WHERE street_shot %% %(code)s 
 		ORDER BY sml DESC, street
         LIMIT 10
     """
 	_query = """
-        SELECT DISTINCT street, street <-> %(code)s AS dist
-		FROM moscow_street_list_tbl 
+        SELECT street_full AS street, street_shot <-> %(code)s AS dist
+		FROM msk_shot_tbl 
 		ORDER BY dist
         LIMIT 10
     """
@@ -58,7 +58,7 @@ def getStreets(code):
 	conn = None
 	res = []
 	try:
-		params = db.config()
+		params = db.configDbConnection()
 		conn = db.psycopg2.connect(**params)
 		cur = conn.cursor(cursor_factory = db.RealDictCursor)
 		cur.execute('SELECT set_limit(0)')
