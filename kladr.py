@@ -504,27 +504,27 @@ def createDataTables():
         """ 
         DROP TABLE IF EXISTS street_code_tbl;
         """,
-        """ 
+        """
         SELECT code,
-            CASE
-                WHEN substring(code, 1, 2) = '00' THEN '0000000000000'
-                ELSE concat(substring(code, 1, 2), '00000000000')
-            END 
-            AS region,
-            CASE
-                WHEN substring(code, 3, 3) = '000' THEN '0000000000000'
-                ELSE concat(substring(code, 1, 5), '00000000')
-            END 
-            AS district,
-            CASE
-                WHEN substring(code, 6, 3) = '000' THEN '0000000000000'
-                ELSE concat(substring(code, 1, 8), '00000')
-            END 
-            AS town,
-            CASE
-                WHEN substring(code, 9, 3) = '000' THEN '0000000000000'
-                ELSE concat(substring(code, 1, 11), '00')
-            END 
+			CASE
+				WHEN substring(code, 1, 2) = '00' THEN repeat('0', 13)
+				ELSE concat(substring(code, 1, 2), repeat('0', 11))
+			END 
+			AS region,
+			CASE
+				WHEN substring(code, 3, 3) = '000' THEN repeat('0', 13)
+				ELSE concat(substring(code, 1, 5), repeat('0', 8))
+			END 
+			AS district,
+			CASE
+				WHEN substring(code, 6, 3) = '000' THEN repeat('0', 13)
+				ELSE concat(substring(code, 1, 8), repeat('0', 5))
+			END 
+			AS town,
+			CASE
+				WHEN substring(code, 9, 3) = '000' THEN repeat('0', 13)
+				ELSE concat(substring(code, 1, 11), repeat('0', 2))
+			END 
             AS locality
         INTO street_code_tbl
         FROM street_tbl
