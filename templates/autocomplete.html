@@ -7,28 +7,27 @@
 <head>
 	<title>Autocomplete Flask / PostgreSQL</title>
 
-	<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+	<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 	<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
 	<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" crossorigin="anonymous"></script>
 	<script>
-		let region_m = '';
-		let district_m = '';
-		let town_m = '';
-		let locality_m = '';
-		let selected_m = '';
-		let v_selected_m = '';
-		let house_m = 'n';
+		let selected_m = "n";
+		let v_selected_m = "n";
+		let house_m = "n";
+		let complete_m = "n";
 		$(function() {
 			$("#searchBoxTrgm").autocomplete({
 				source : function(request, response) {
 					$.ajax({
-						type: "POST",
+						type : "POST",
+						async : true,
 						url : "http://localhost:5000/search",
 						dataType : "json",
-						cache: false,
+						crossDomain : true,
+						cache : false,
 						data : {
 							q : request.term,
-							v : "m"
+							v : "r_metaphone"
 						},
 						success : function(data) {
 							response(data);
@@ -42,9 +41,9 @@
 			});
 		});
 		$(function() {
-			function log( message ) {
-				$("<div>").text( message ).prependTo("#log");
-				$("#log").scrollTop( 0 );
+			function log(message) {
+				$("<div>").text(message).prependTo("#log");
+				$("#log").scrollTop(0);
 			}
 			$("#searchBoxMielofon").autocomplete({
 				source : function(request, response) {
@@ -53,24 +52,49 @@
 						async : true,
 						url : "http://localhost:5000/search",
 						dataType : "json",
+						crossDomain : true,
 						cache : false,
+						delay : 250,
 						data: {
 							q : request.term,
-							v : "m",
-							_r_m : region_m,
-							_d_m : district_m,
-							_t_m : town_m,
-							_l_m : locality_m,
+							v : "m_trgm",
 							_s_m : selected_m,
 							_v_m : v_selected_m,
-							_h_m : house_m
+							_h_m : house_m,
+							_c_m : complete_m
 						},
 						beforeSend : function() {
 							$("#searchBoxMielofon").css("background","#F9F9F9");
 						},
 						success : function(data) {
 							$("#searchBoxMielofon").css("background","#FFF");
-							response(data);
+							//response(data);
+							for (let item of data) {
+								if (item.key.length < 10)
+									console.log(item.key, '=', item.value);
+							}
+							let arr = [];
+							response($.map(data, function(item) {
+								switch(item.key) {
+									case "_s_m":
+										selected_m = item.value;
+										break;
+									case "_v_m":
+										v_selected_m = item.value;
+										break;
+									case "_h_m":
+										house_m = item.value;
+										break;
+									case "_c_m":
+										complete_m = item.value;
+										break;
+									case "house":
+										break;
+									default:
+										arr.push(item);
+								}
+							}));
+							response(arr);
 						},
 						error : function(jqXHR, textStatus, errorThrown) {
 							console.log(textStatus + " " + errorThrown);
@@ -79,8 +103,13 @@
 				},
 				minLength : 2,
 				select: function(event, ui) {
-					selected_m = ui.item.key.substring(1);
-					house_m = 'y';
+					if (house_m == 'y') {
+						complete_m = 'y';
+					}
+					if (house_m == 'n') {
+						house_m = 'y';
+						selected_m = ui.item.key.substring(1);
+					}
 					v_selected_m = ui.item.value;
 					log("Selected: " + ui.item.value + " aka " + ui.item.key);
 				}
@@ -94,14 +123,15 @@
 		<form method="post">
 			<div class="form-group"> 
 			<label for="id_address_trgm" class=" requiredField">
-				Address<span class="asteriskField">*</span> 
+				Address Rus metaphone<span class="asteriskField">*</span> 
 			</label> 
 			<div class=""><input type="text" name="address_trgm" class="textinput textInput form-control" required id="searchBoxTrgm"></div> </div> 
 			<div class="form-group"> 
 			<label for="id_address_mielofon" class=" requiredField">
-				Address<span class="asteriskField">*</span> 
+				Address Msk trgm<span class="asteriskField">*</span> 
 			</label> 
 			<div class=""> <input type="text" name="address_mielofon" class="textinput textInput form-control" required id="searchBoxMielofon"> </div> 
+			<p id="MielofonWarning"></p>
 			</div> 
 			<button class="btn btn-primary" type="submit">Submit</button>
 		</form>	
