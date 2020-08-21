@@ -651,11 +651,61 @@ def createDataTables():
         UPDATE rus_shot_tbl 
         SET tsv = to_tsvector(street_shot);
         """,
+		"""
+		CREATE EXTENSION pg_trgm;
+		""",
         """
         CREATE INDEX trgm_idx 
         ON rus_shot_tbl 
         USING gin (street_shot gin_trgm_ops);
         """,
+		"""
+		create or replace function phoneme (in_lexeme text)
+		returns text
+		language plpgsql
+		immutable
+		as $$
+		declare
+		res varchar(100) DEFAULT '';
+		begin
+		res := lower(in_lexeme);
+		res := regexp_replace(res,'[ъь]','','g');
+		res := regexp_replace(res,'(йо|ио|йе|ие)','и','g');
+		res := regexp_replace(res,'[оыя]','а','g');
+		res := regexp_replace(res,'[еёэ]','и','g');
+		res := regexp_replace(res,'ю','у','g');
+		res := regexp_replace(res,'б([псткбвгджзфхцчшщ]|$)','п\1','g');
+		res := regexp_replace(res,'з([псткбвгджзфхцчшщ]|$)','с\1','g');
+		res := regexp_replace(res,'д([псткбвгджзфхцчшщ]|$)','т\1','g');
+		res := regexp_replace(res,'в([псткбвгджзфхцчшщ]|$)','ф\1','g');
+		res := regexp_replace(res,'г([псткбвгджзфхцчшщ]|$)','к\1','g');
+		res := regexp_replace(res,'дс','ц','g');
+		res := regexp_replace(res,'тс','ц','g');
+		res := regexp_replace(res,'(.)\1','\1','g');
+		return res;
+		exception
+		when others then raise exception '%%', sqlerrm;
+		end;
+		$$;
+		""",
+		"""
+		create or replace function metaphone (in_phonemes text)
+		returns text
+		language plpgsql
+		immutable
+		as $$
+		begin
+		return (
+			select string_agg(q.lex,' ') from (
+			select phoneme(lexeme) as lex from unnest(to_tsvector('simple', in_phonemes))
+			order by positions
+			) as q
+		);
+		exception when others then
+		raise '%%', SQLERRM using errcode = SQLSTATE;
+		end;
+		$$;
+		""",
         """
         CREATE INDEX metaphone_trgm_idx 
         ON rus_shot_tbl 
@@ -663,9 +713,21 @@ def createDataTables():
         """,
         """
         CREATE INDEX rum_idx 
-        ON rus_shot_tbl 
+        ON rus_shot_tbl
         USING rum (to_tsvector('simple'::regconfig, street_shot) rum_tsvector_ops);
         """,
+		"""
+		DROP TABLE IF EXISTS td_tbl;
+		""",
+		"""
+		SELECT name AS houses, substring(code, 1, 17) AS code, index
+		INTO td_tbl
+		FROM doma_tbl
+		""",
+		"""
+		CREATE INDEX td_code_idx
+		ON td_tbl (code);
+		""",
     ]
     # execute command list
     db.executeCommand(commands)
