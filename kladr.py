@@ -728,6 +728,20 @@ def createDataTables():
 		CREATE INDEX td_code_idx
 		ON td_tbl (code);
 		""",
+		"""
+		DROP TABLE IF EXISTS msk_shot_tbl;
+		""",
+		"""
+		SELECT *
+		INTO msk_shot_tbl
+		FROM rus_shot_tbl
+		WHERE region = 'Москва';
+		""",
+		"""
+		CREATE INDEX msk_trgm_idx 
+		ON msk_shot_tbl 
+		USING gin (street_shot gin_trgm_ops);
+		""",
     ]
     # execute command list
     db.executeCommand(commands)
