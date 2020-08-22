@@ -23,7 +23,6 @@ def upload_form():
 
 @app.route('/search', methods=['POST'])
 def search():
-	timeStart = datetime.datetime.today()
 	res = []
 	if request.method == 'POST':
 		res = getStreets(request)
@@ -37,7 +36,7 @@ def search():
 	return resp
 
 def getStreets(request):
-	timeStart = datetime.datetime.today()
+	timeStart = datetime.datetime.now()
 	""" query data """
 	query = """
         SELECT street_full AS street FROM msk_shot_tbl 
@@ -160,8 +159,8 @@ def getStreets(request):
 	finally:
 		if conn is not None:
 			conn.close()
-	timeStop = datetime.datetime.today()
-	res.append({'key': '_t', 'value': f'{(timeStop.microsecond - timeStart.microsecond) // 1000}'})
+	timeDelta = datetime.datetime.now() - timeStart
+	res.append({'key': '_t', 'value': f'{timeDelta.microseconds // 1e3 + timeDelta.seconds * 1e3}'})
 	return res
 
 if __name__ == '__main__':

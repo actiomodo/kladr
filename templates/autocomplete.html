@@ -4,12 +4,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!--Bootstrap CSS-->
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+<!--JQuery-->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" crossorigin="anonymous"></script>
+<!--Chart-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.js"></script>
 <head>
 	<title>Autocomplete Flask / PostgreSQL</title>
 
-	<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-	<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
-	<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" crossorigin="anonymous"></script>
 	<script>
 		class addressAutocomplete {
 			constructor(){
@@ -21,9 +25,54 @@
 				this.full = "n";
 			}
 		}
-		function log(message) {
+		let $timeChart;
+		let $timeChartData = {
+			labels: [],
+			datasets: [{
+				label: 'fon, ms',
+				labels: [],
+				data: [],
+				backgroundColor: 'rgba(255, 99, 132, 0.2)',
+				borderColor: 'rgba(255, 99, 132, 1)',
+				borderWidth: 1
+			},
+			{
+				label: 'trgm, ms',
+				labels: [],
+				data: [],
+				backgroundColor: 'rgba(54, 162, 235, 0.2)',
+				borderColor: 'rgba(54, 162, 235, 1)',
+				borderWidth: 1
+			}]
+		}
+		$(window).on("load", function() {
+			let ctx = document.getElementById('myChart').getContext('2d');
+			$timeChart = new Chart(ctx, {
+				type: 'bar',
+				data: $timeChartData,
+				options: {
+					scales: {
+						yAxes: [{
+							ticks: {
+								beginAtZero: true
+							}
+						}]
+					}
+				}
+			});
+		});
+		function resultLog(message) {
 			$("<div>").text(message).prependTo("#log");
 			$("#log").scrollTop(0);
+		}
+		function addChartData(value, datasetNumber){
+			let labelsLength = $timeChartData.labels.length;
+			let dataLength = $timeChartData.datasets[datasetNumber].data.length;
+			if (labelsLength == dataLength) {
+				$timeChartData.labels.push(labelsLength + 1);
+			}
+			$timeChartData.datasets[datasetNumber].data.push(value);
+			$timeChart.update();
 		}
 		$(function() {
 			let searchMielofon = new addressAutocomplete();
@@ -82,6 +131,7 @@
 										break;
 									case "_t":
 										$("#mielofonQueryTime").text(item.value + " ms");
+										addChartData(item.value, 0);
 										break;
 									case "house":
 										break;
@@ -114,7 +164,7 @@
 							searchMielofon.v_house = ui.item.value;
 						}
 					}
-					log("Selected: " + ui.item.value);
+					resultLog("Selected: " + ui.item.value);
 				}
 			});
 		});
@@ -175,6 +225,7 @@
 										break;
 									case "_t":
 										$("#trgmQueryTime").text(item.value + " ms");
+										addChartData(item.value, 1);
 										break;
 									case "house":
 										break;
@@ -207,7 +258,7 @@
 							searchTrgm.v_house = ui.item.value;
 						}
 					}
-					log("Selected: " + ui.item.value);
+					resultLog("Selected: " + ui.item.value);
 				}
 			});
 		});
@@ -216,19 +267,21 @@
 <body>
 	<div class="container p-5" style="width: 860px;">
 		<h2>Autocomplete PostgreSQL</h2>
+		<div style="height: 200px; width: 100%; overflow: auto;">
+		<canvas id="myChart" style="height: 100%; width: 100%; overflow: auto;"></canvas></div>
 		<form method="post">
 			<div class="form-group">
 			<label for="id_address_trgm" class=" requiredField">
 				Address Rus metaphone<span class="asteriskField">*</span>
 				<span id="mielofonWarning"></span><br>
-				db time: <span id="mielofonQueryTime"></span>
+				db last time: <span id="mielofonQueryTime"></span>
 			</label>
 			<div class=""><input type="text" name="address_trgm" class="textinput textInput form-control" required id="searchBoxMielofon"></div></div>
 			<div class="form-group">
 			<label for="id_address_mielofon" class=" requiredField">
 				Address Msk trgm<span class="asteriskField">*</span>
 				<span id="trgmWarning"></span><br>
-				db time: <span id="trgmQueryTime"></span>
+				db last time: <span id="trgmQueryTime"></span>
 			</label>
 			<div class=""> <input type="text" name="address_mielofon" class="textinput textInput form-control" required id="searchBoxTrgm"> </div>
 			</div>
