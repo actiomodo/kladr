@@ -27,7 +27,7 @@ def search():
 	res = []
 	if request.method == 'POST':
 		res = getStreets(request)
-	pprint.pprint(f'response: {str(res)[:40]}')
+	#pprint.pprint(f'response: {str(res)[:40]}')
 	#print(request.form)
 	#print(f'term: {term}, res: {len(res)}, time: {datetime.datetime.today() - timeStart}')
 	#pprint.pprint(res)
@@ -37,6 +37,7 @@ def search():
 	return resp
 
 def getStreets(request):
+	timeStart = datetime.datetime.today()
 	""" query data """
 	query = """
         SELECT street_full AS street FROM msk_shot_tbl 
@@ -57,62 +58,77 @@ def getStreets(request):
         LIMIT 10
     """
 	value = request.form['q']
-	if request.form['v'] == 'm_trgm' and value.find(']') != -1:
-		value = value.split(']')[1].strip()
-	queryParameters = {'value': ''.join(['%', value, '%'])}
 	if request.form['v'] == 'r_metaphone':
 		query = """
 			SELECT code, street_full AS street FROM rus_shot_tbl 
 			WHERE metaphone(street_shot) LIKE 
-			'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%' LIMIT 10
+			'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%'
+			LIMIT 10
 		"""
+	elif request.form['v'] == 'm_trgm':
+		if value.find(']') != -1:
+			value = value.split(']')[1].strip()
+		value = ''.join(['%', value, '%'])
+	queryParameters = {'value': value}
 	conn = None
 	res = []
-	if request.form['v'] == 'm_trgm':
+	"""
+	q : request.term,
+	v : "m_trgm",
+	_id : searchTrgm.code,
+	_s  : searchTrgm.street,
+	_vs : searchTrgm.v_street,
+	_h  : searchTrgm.house,
+	_vh : searchTrgm.v_house,
+	_f  : searchTrgm.full
+	"""
+	_code = request.form['_id']
+	_street = request.form['_s']
+	_v_street = request.form['_vs']
+	_house = request.form['_h']
+	_v_house = request.form['_vh']
+	_full = request.form['_f']
+	if _house == 'y' and request.form['q'].find(_v_house) == -1:
+		_house = 'n'
+		_v_house = 'n'
+		_full = 'n'
+	elif _street == 'y' and request.form['q'].find(_v_street) == -1:
+		_code = 'n'
+		_street = 'n'
+		_v_street = 'n'
+		_house = 'n'
+		_v_house = 'n'
+		_full = 'n'
+	if _street == 'y':
+		#res.append({'key': 'house', 'value': 'found later'})
+		value = request.form['q'].split(_v_street)[-1].strip()
+		start = 0
+		while start < len(value) and not value[start].isdigit():
+			start += 1
+		value = value[start:]
+		value = (f'({value})|({value}.)', '.')[value == '']
+		query = """
+			WITH houses AS (
+				SELECT
+				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'.'), '') AS dom,
+				r.code
+				FROM rus_shot_tbl AS r
+				LEFT JOIN td_tbl AS t ON t.code = r.code
+				WHERE r.code = %(code)s
+				)
+			SELECT DISTINCT dom, code
+			FROM houses
+			WHERE dom != ''
+			ORDER BY dom
+			LIMIT 10
 		"""
-		q : request.term,
-		v : "m_trgm",
-		_s_m : selected_m,
-		_v_m : v_selected_m,
-		_h_m : house_m
-		"""
-		selected_m = request.form['_s_m']
-		v_selected_m = request.form['_v_m']
-		house_m = request.form['_h_m']
-		complete_m = request.form['_c_m']
-		if v_selected_m != 'n' and request.form['q'].find(v_selected_m) == -1:
-			selected_m = 'n'
-			v_selected_m = 'n'
-			house_m = 'n'
-			complete_m = 'n'
-		if house_m == 'y':
-			#res.append({'key': 'house', 'value': 'found later'})
-			value = request.form['q'].split(v_selected_m)[-1].strip()
-			start = 0
-			while start < len(value) and not value[start].isdigit():
-				start += 1
-			value = value[start:]
-			value = (value, '.')[value == '']
-			query = """
-				WITH houses AS (
-					SELECT 
-					array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'+'), '') AS dom,
-					r.code
-					FROM rus_shot_tbl AS r 
-					LEFT JOIN td_tbl AS t ON t.code = r.code 
-					WHERE r.code = %(code)s
-					) 
-				SELECT DISTINCT dom, code
-				FROM houses 
-				WHERE dom != '' 
-				ORDER BY dom
-				LIMIT 10
-			"""
-			queryParameters = {'value': value, 'code': selected_m}
-		res.append({'key': '_s_m', 'value': selected_m})
-		res.append({'key': '_v_m', 'value': v_selected_m})
-		res.append({'key': '_h_m', 'value': house_m})
-		res.append({'key': '_c_m', 'value': complete_m})
+		queryParameters = {'value': value, 'code': _code}
+	res.append({'key': '_id', 'value': _code})
+	res.append({'key': '_s', 'value': _street})
+	res.append({'key': '_vs', 'value': _v_street})
+	res.append({'key': '_h', 'value': _house})
+	res.append({'key': '_vh', 'value': _v_house})
+	res.append({'key': '_f', 'value': _full})
 	try:
 		params = db.configDbConnection()
 		conn = db.psycopg2.connect(**params)
@@ -124,22 +140,28 @@ def getStreets(request):
 		for i, row in enumerate(db.iterRow(cur, 10)):
 			code = ''.join([str(i), row['code']])
 			if request.form['v'] == 'm_trgm':
-				if house_m == 'y':
-					street = ', д '.join([v_selected_m, row['dom']])
-					res.append({'key': selected_m, 'value': f'{street}'})
+				if _street == 'y':
+					street = ', д '.join([_v_street, row['dom']])
 				else:
 					sml = row['sml']
+					v_street = row['street']
+					street = f'[{sml:.6f}] {v_street}'
+			elif request.form['v'] == 'r_metaphone':
+				if _street == 'y':
+					street = ', д '.join([_v_street, row['dom']])
+				else:
 					street = row['street']
-					res.append({'key': code, 'value': f'[{sml:.6f}] {street}'})
 			else:
 				street = row['street']
-				res.append({'key': code, 'value': f'{street}'})
+			res.append({'key': code, 'value': f'{street}'})
 		cur.close()
 	except (Exception, db.psycopg2.DatabaseError) as error:
 		print(error)
 	finally:
 		if conn is not None:
 			conn.close()
+	timeStop = datetime.datetime.today()
+	res.append({'key': '_t', 'value': f'{(timeStop.microsecond - timeStart.microsecond) // 1000}'})
 	return res
 
 if __name__ == '__main__':

@@ -722,7 +722,7 @@ def createDataTables():
 		"""
 		SELECT name AS houses, substring(code, 1, 17) AS code, index
 		INTO td_tbl
-		FROM doma_tbl
+		FROM doma_tbl;
 		""",
 		"""
 		CREATE INDEX td_code_idx
