@@ -501,6 +501,59 @@ def codeStreetDecomposition():
 def createDataTables():
     # create command list
     commands = [
+		"""
+		CREATE EXTENSION IF NOT EXISTS pg_trgm;
+		""",
+		"""
+		CREATE EXTENSION IF NOT EXISTS rum;
+		""",
+		"""
+		create or replace function phoneme (in_lexeme text)
+		returns text
+		language plpgsql
+		immutable
+		as $$
+		declare
+		res varchar(100) DEFAULT '';
+		begin
+		res := lower(in_lexeme);
+		res := regexp_replace(res,'[ъь]','','g');
+		res := regexp_replace(res,'(йо|ио|йе|ие)','и','g');
+		res := regexp_replace(res,'[оыя]','а','g');
+		res := regexp_replace(res,'[еёэ]','и','g');
+		res := regexp_replace(res,'ю','у','g');
+		res := regexp_replace(res,'б([псткбвгджзфхцчшщ]|$)','п\1','g');
+		res := regexp_replace(res,'з([псткбвгджзфхцчшщ]|$)','с\1','g');
+		res := regexp_replace(res,'д([псткбвгджзфхцчшщ]|$)','т\1','g');
+		res := regexp_replace(res,'в([псткбвгджзфхцчшщ]|$)','ф\1','g');
+		res := regexp_replace(res,'г([псткбвгджзфхцчшщ]|$)','к\1','g');
+		res := regexp_replace(res,'дс','ц','g');
+		res := regexp_replace(res,'тс','ц','g');
+		res := regexp_replace(res,'(.)\1','\1','g');
+		return res;
+		exception when others then 
+		raise notice '%', SQLERRM;
+		end;
+		$$;
+		""",
+		"""
+		create or replace function metaphone (in_phonemes text)
+		returns text
+		language plpgsql
+		immutable
+		as $$
+		begin
+		return (
+			select string_agg(q.lex,' ') from (
+			select phoneme(lexeme) as lex from unnest(to_tsvector('simple', in_phonemes))
+			order by positions
+			) as q
+		);
+		exception when others then
+		raise notice '%', SQLERRM;
+		end;
+		$$;
+		""",
         """ 
         DROP TABLE IF EXISTS street_code_tbl;
         """,
@@ -652,60 +705,14 @@ def createDataTables():
         SET tsv = to_tsvector(street_shot);
         """,
 		"""
-		CREATE EXTENSION pg_trgm;
+		CREATE INDEX rus_shot_code_idx
+		ON rus_shot_tbl (code);
 		""",
         """
         CREATE INDEX trgm_idx 
         ON rus_shot_tbl 
         USING gin (street_shot gin_trgm_ops);
         """,
-		"""
-		create or replace function phoneme (in_lexeme text)
-		returns text
-		language plpgsql
-		immutable
-		as $$
-		declare
-		res varchar(100) DEFAULT '';
-		begin
-		res := lower(in_lexeme);
-		res := regexp_replace(res,'[ъь]','','g');
-		res := regexp_replace(res,'(йо|ио|йе|ие)','и','g');
-		res := regexp_replace(res,'[оыя]','а','g');
-		res := regexp_replace(res,'[еёэ]','и','g');
-		res := regexp_replace(res,'ю','у','g');
-		res := regexp_replace(res,'б([псткбвгджзфхцчшщ]|$)','п\1','g');
-		res := regexp_replace(res,'з([псткбвгджзфхцчшщ]|$)','с\1','g');
-		res := regexp_replace(res,'д([псткбвгджзфхцчшщ]|$)','т\1','g');
-		res := regexp_replace(res,'в([псткбвгджзфхцчшщ]|$)','ф\1','g');
-		res := regexp_replace(res,'г([псткбвгджзфхцчшщ]|$)','к\1','g');
-		res := regexp_replace(res,'дс','ц','g');
-		res := regexp_replace(res,'тс','ц','g');
-		res := regexp_replace(res,'(.)\1','\1','g');
-		return res;
-		exception
-		when others then raise exception '%%', sqlerrm;
-		end;
-		$$;
-		""",
-		"""
-		create or replace function metaphone (in_phonemes text)
-		returns text
-		language plpgsql
-		immutable
-		as $$
-		begin
-		return (
-			select string_agg(q.lex,' ') from (
-			select phoneme(lexeme) as lex from unnest(to_tsvector('simple', in_phonemes))
-			order by positions
-			) as q
-		);
-		exception when others then
-		raise '%%', SQLERRM using errcode = SQLSTATE;
-		end;
-		$$;
-		""",
         """
         CREATE INDEX metaphone_trgm_idx 
         ON rus_shot_tbl 
@@ -760,15 +767,7 @@ if __name__ == '__main__':
         WHERE N.level = '1'
         LIMIT 10
     """
-    #db.getInfo(query)
-    #getInfoKladr()
-    #getInfoStreet()
-    #codeKladrDecomposition()
-    #timeStart = datetime.datetime.today()
-    #codeStreetDecomposition()
-    #print(f'execution time: {datetime.datetime.today() - timeStart}')   
     timeStart = datetime.datetime.today()
-    #createStreetList()
-    #createDataTables()
+    createDataTables()
     print(f'execution time: {datetime.datetime.today() - timeStart}')
     
