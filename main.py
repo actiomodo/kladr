@@ -109,7 +109,7 @@ def getStreets(request):
 		query = """
 			WITH houses AS (
 				SELECT
-				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'.'), '') AS dom,
+				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'(.*|$)'), '') AS dom,
 				r.code
 				FROM rus_shot_tbl AS r
 				LEFT JOIN td_tbl AS t ON t.code = r.code
@@ -189,7 +189,8 @@ def queryNormalization(query):
 			  "к. ", "кот. ", "ОНС ", "пав. ", "соор. ", "стр. ", "шахта ", ","]
 	for v in scname:
 		query = query.replace(v, "")
-	return query
+	res = query.strip()
+	return res
 
 if __name__ == '__main__':
 	app.run()
