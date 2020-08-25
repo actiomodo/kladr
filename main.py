@@ -68,7 +68,7 @@ def getStreets(request):
 		if value.find(']') != -1:
 			value = value.split(']')[1].strip()
 		value = ''.join(['%', value, '%'])
-	queryParameters = {'value': queryNormalization(value)}
+	queryParameters = {'value': queryNormalization(value).lower()}
 	conn = None
 	res = []
 	"""
@@ -105,11 +105,11 @@ def getStreets(request):
 		while start < len(value) and not value[start].isdigit():
 			start += 1
 		value = value[start:]
-		value = (f'({value})|({value}.)', '.')[value == '']
+		#value = (f'({value})|({value}.)', '.')[value == '']
 		query = """
 			WITH houses AS (
 				SELECT
-				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'(.*|$)', 'i'), '') AS dom,
+				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'[^ ]*', 'i'), '') AS dom,
 				r.code
 				FROM rus_shot_tbl AS r
 				LEFT JOIN td_tbl AS t ON t.code = r.code
@@ -121,7 +121,7 @@ def getStreets(request):
 			ORDER BY dom
 			LIMIT 10
 		"""
-		queryParameters = {'value': value, 'code': _code}
+		queryParameters = {'value': value.lower(), 'code': _code}
 	res.append({'key': '_id', 'value': _code})
 	res.append({'key': '_s', 'value': _street})
 	res.append({'key': '_vs', 'value': _v_street})
