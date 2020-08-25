@@ -586,20 +586,19 @@ def createDataTables():
         DROP TABLE IF EXISTS t_tbl;
         """,
         """ 
-        SELECT DISTINCT s.code, 
+        SELECT DISTINCT s.code, s1.index, d.name AS doma,
         replace(replace(concat_ws(', ', concat_ws(' ', lower(sb1.scname), k1.name), 
         concat_ws(' ', lower(sb2.scname), k2.name), 
         concat_ws(' ', lower(sb3.scname), k3.name), 
         concat_ws(' ', lower(sb4.scname), k4.name), 
         concat_ws(' ', lower(sb5.scname), s1.name)), ', ,', ','), ', ,', ',') AS street_full, 
-        replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name), 
-        '  ', ' '), '  ', ' ') AS street_shot, 
+        lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name,
+		k4.name, k3.name, k2.name, k1.name), '  ', ' '), '  ', ' ')) AS street_shot, 
         lower(sb1.socrname) AS reg_pr, k1.name AS region, 
         lower(sb2.socrname) AS dis_pr, k2.name AS district, 
         lower(sb3.socrname) AS tow_pr, k3.name AS town, 
         lower(sb4.socrname) AS loc_pr, k4.name AS locality, 
-        lower(sb5.socrname) AS str_pr, s1.name AS street, 
-        s1.index, d.name AS doma
+        lower(sb5.socrname) AS str_pr, s1.name AS street
         INTO t_tbl                       
         FROM street_code_tbl AS s
             LEFT JOIN street_tbl AS s1 ON s.code = s1.code 

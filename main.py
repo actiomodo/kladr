@@ -109,8 +109,8 @@ def getStreets(request):
 		query = """
 			WITH houses AS (
 				SELECT
-				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','),%(value)s||'[^ ]*', 'i'), '') AS dom,
-				r.code
+				array_to_string(regexp_match(regexp_split_to_table(t.houses, ','), %(value)s||'[^ ]*', 'i'), '')
+				AS dom, r.code
 				FROM rus_shot_tbl AS r
 				LEFT JOIN td_tbl AS t ON t.code = r.code
 				WHERE r.code = %(code)s
