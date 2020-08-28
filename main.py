@@ -60,7 +60,7 @@ def getStreets(request):
 	if request.form['v'] == 'r_metaphone':
 		query = """
 			SELECT code, street_full AS street FROM rus_shot_tbl 
-			WHERE metaphone(street_shot) LIKE 
+			WHERE street_metaphone LIKE
 			'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%'
 			LIMIT 10
 		"""

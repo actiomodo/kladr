@@ -592,13 +592,15 @@ def createDataTables():
         concat_ws(' ', lower(sb3.scname), k3.name), 
         concat_ws(' ', lower(sb4.scname), k4.name), 
         concat_ws(' ', lower(sb5.scname), s1.name)), ', ,', ','), ', ,', ',') AS street_full, 
-        lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name,
-		k4.name, k3.name, k2.name, k1.name), '  ', ' '), '  ', ' ')) AS street_shot, 
+        lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name),
+		'  ', ' '), '  ', ' ')) AS street_shot,
         lower(sb1.socrname) AS reg_pr, k1.name AS region, 
         lower(sb2.socrname) AS dis_pr, k2.name AS district, 
         lower(sb3.socrname) AS tow_pr, k3.name AS town, 
         lower(sb4.socrname) AS loc_pr, k4.name AS locality, 
-        lower(sb5.socrname) AS str_pr, s1.name AS street
+        lower(sb5.socrname) AS str_pr, s1.name AS street,
+		metaphone(lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name),
+		'  ', ' '), '  ', ' '))) AS street_metaphone
         INTO t_tbl                       
         FROM street_code_tbl AS s
             LEFT JOIN street_tbl AS s1 ON s.code = s1.code 
@@ -622,7 +624,7 @@ def createDataTables():
         """,
         """
         SELECT DISTINCT code, 
-        index, street_full, street_shot, reg_pr, region, dis_pr, district, 
+        index, street_full, street_shot, street_metaphone, reg_pr, region, dis_pr, district,
         tow_pr, town, loc_pr, locality, str_pr, street 
         INTO rus_shot_tbl 
         FROM t_tbl;
