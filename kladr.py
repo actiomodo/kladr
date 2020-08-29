@@ -522,17 +522,17 @@ def createDataTables():
 		res := regexp_replace(res,'[оыя]','а','g');
 		res := regexp_replace(res,'[еёэ]','и','g');
 		res := regexp_replace(res,'ю','у','g');
-		res := regexp_replace(res,'б([псткбвгджзфхцчшщ]|$)','п\1','g');
-		res := regexp_replace(res,'з([псткбвгджзфхцчшщ]|$)','с\1','g');
-		res := regexp_replace(res,'д([псткбвгджзфхцчшщ]|$)','т\1','g');
-		res := regexp_replace(res,'в([псткбвгджзфхцчшщ]|$)','ф\1','g');
-		res := regexp_replace(res,'г([псткбвгджзфхцчшщ]|$)','к\1','g');
+		res := regexp_replace(res,'б','п','g');
+		res := regexp_replace(res,'з','с','g');
+		res := regexp_replace(res,'д','т','g');
+		res := regexp_replace(res,'в','ф','g');
+		res := regexp_replace(res,'г','к','g');
 		res := regexp_replace(res,'дс','ц','g');
 		res := regexp_replace(res,'тс','ц','g');
-		res := regexp_replace(res,'(.)\1','\1','g');
+		res := regexp_replace(res,'(.)\\1','\\1','g');
 		return res;
-		exception when others then 
-		raise notice '%', SQLERRM;
+		exception
+		when others then raise exception '%', sqlerrm;
 		end;
 		$$;
 		""",
@@ -703,26 +703,21 @@ def createDataTables():
         """,
         """
         UPDATE rus_shot_tbl 
-        SET tsv = to_tsvector(street_shot);
+        SET tsv = to_tsvector(street_metaphone);
         """,
 		"""
 		CREATE INDEX rus_shot_code_idx
 		ON rus_shot_tbl (code);
 		""",
         """
-        CREATE INDEX trgm_idx 
-        ON rus_shot_tbl 
-        USING gin (street_shot gin_trgm_ops);
-        """,
-        """
         CREATE INDEX metaphone_trgm_idx 
         ON rus_shot_tbl 
-        USING gin (metaphone(street_shot) gin_trgm_ops);
+        USING gin (metaphone(street_metaphone) gin_trgm_ops);
         """,
         """
         CREATE INDEX rum_idx 
         ON rus_shot_tbl
-        USING rum (to_tsvector('simple'::regconfig, street_shot) rum_tsvector_ops);
+        USING rum (to_tsvector('simple'::regconfig, street_metaphone) rum_tsvector_ops);
         """,
 		"""
 		DROP TABLE IF EXISTS td_tbl;
