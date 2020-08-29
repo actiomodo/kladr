@@ -58,29 +58,37 @@ def getStreets(request):
     """
 	value = request.form['q']
 	if request.form['v'] == 'r_metaphone':
-		query = """
-			SELECT code, street_full AS street FROM rus_shot_tbl 
-			WHERE street_metaphone LIKE
-			'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%'
-			LIMIT 10
-		"""
+		if value.find(' ') != -1:
+			valueSplit = value.split(' ')
+			query = """
+				WITH word1 AS (SELECT code, street_full, street_metaphone
+							FROM rus_shot_tbl
+							WHERE street_metaphone
+							LIKE '%%'||regexp_replace(metaphone(%(value1)s),'\s','%%','g')||'%%'
+							)
+				SELECT code, street_full AS street
+				FROM word1
+				WHERE street_metaphone
+				LIKE '%%'||regexp_replace(metaphone(%(value2)s),'\s','%%','g')||'%%'
+				LIMIT 10
+			"""
+			queryParameters = {'value1': queryNormalization(valueSplit[0]).lower(),
+							   'value2': queryNormalization(valueSplit[1]).lower()}
+		else:
+			query = """
+				SELECT code, street_full AS street FROM rus_shot_tbl
+				WHERE street_metaphone LIKE
+				'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%'
+				LIMIT 10
+			"""
+			queryParameters = {'value': queryNormalization(value).lower()}
 	elif request.form['v'] == 'm_trgm':
 		if value.find(']') != -1:
 			value = value.split(']')[1].strip()
 		value = ''.join(['%', value, '%'])
-	queryParameters = {'value': queryNormalization(value).lower()}
+		queryParameters = {'value': queryNormalization(value).lower()}
 	conn = None
 	res = []
-	"""
-	q : request.term,
-	v : "m_trgm",
-	_id : searchTrgm.code,
-	_s  : searchTrgm.street,
-	_vs : searchTrgm.v_street,
-	_h  : searchTrgm.house,
-	_vh : searchTrgm.v_house,
-	_f  : searchTrgm.full
-	"""
 	_code = request.form['_id']
 	_street = request.form['_s']
 	_v_street = request.form['_vs']
