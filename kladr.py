@@ -599,7 +599,7 @@ def createDataTables():
         lower(sb3.socrname) AS tow_pr, k3.name AS town, 
         lower(sb4.socrname) AS loc_pr, k4.name AS locality, 
         lower(sb5.socrname) AS str_pr, s1.name AS street,
-		metaphone(lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name),
+		metaphone(lower(replace(replace(concat_ws(' ', k3.name, k1.name, s1.name, k2.name, k4.name),
 		'  ', ' '), '  ', ' '))) AS street_metaphone
         INTO t_tbl                       
         FROM street_code_tbl AS s
@@ -712,7 +712,7 @@ def createDataTables():
         """
         CREATE INDEX metaphone_trgm_idx 
         ON rus_shot_tbl 
-        USING gin (metaphone(street_metaphone) gin_trgm_ops);
+        USING gin (street_metaphone gin_trgm_ops);
         """,
         """
         CREATE INDEX rum_idx 

@@ -58,7 +58,7 @@ def getStreets(request):
     """
 	value = request.form['q']
 	if request.form['v'] == 'r_metaphone':
-		if value.find(' ') != -1:
+		if value.strip().find(' ') != -1:
 			valueSplit = value.split(' ')
 			query = """
 				WITH word1 AS (SELECT code, street_full, street_metaphone
