@@ -56,7 +56,7 @@ def getStreets(request):
 		ORDER BY sml DESC
         LIMIT 10
     """
-	value = request.form['q']
+	value = transliteration(request.form['q'])
 	if request.form['v'] == 'r_metaphone':
 		if value.strip().find(' ') != -1:
 			valueSplit = value.split(' ')
@@ -107,13 +107,11 @@ def getStreets(request):
 		_v_house = 'n'
 		_full = 'n'
 	if _street == 'y':
-		#res.append({'key': 'house', 'value': 'found later'})
 		value = request.form['q'].split(_v_street)[-1].strip()
 		start = 0
 		while start < len(value) and not value[start].isdigit():
 			start += 1
 		value = value[start:]
-		#value = (f'({value})|({value}.)', '.')[value == '']
 		query = """
 			WITH houses AS (
 				SELECT
@@ -171,6 +169,13 @@ def getStreets(request):
 	timeDeltaMicroseconds = int(timeDelta.microseconds // 1e3 + timeDelta.seconds * 1e3)
 	res.append({'key': '_t', 'value': f'{timeDeltaMicroseconds}'})
 	return res
+
+def transliteration(query):
+	literas = {'z': 'я', 'x':' ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь', ',': 'б',
+			   '.': 'ю', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о',
+			   'k': 'л', 'l': 'д', ';': 'ж', '\'': 'э', 'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к',
+			   't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з', '[': 'х', ' ': ' '}
+	return ''.join([literas.get(v, v) for v in query if v in literas.keys()])
 
 def queryNormalization(query):
 	scname = ["Аобл ", "АО ", "г ", "г.ф.з. ", "край ", "обл ", "округ ", "Респ ", "Чувашия ", "АО ", 
