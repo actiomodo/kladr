@@ -175,7 +175,7 @@ def transliteration(query):
 			   '.': 'ю', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о',
 			   'k': 'л', 'l': 'д', ';': 'ж', '\'': 'э', 'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к',
 			   't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з', '[': 'х', ' ': ' '}
-	return ''.join([literas.get(v, v) for v in query if v in literas.keys()])
+	return ''.join([literas.get(v, v) for v in query])
 
 def queryNormalization(query):
 	scname = ["Аобл ", "АО ", "г ", "г.ф.з. ", "край ", "обл ", "округ ", "Респ ", "Чувашия ", "АО ", 
