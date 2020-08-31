@@ -3,6 +3,7 @@ database.ini
 import.txt
 streets.txt
 streets_moscow.txt
+soup.py
 *.pyc
 *.pem
 *.pub

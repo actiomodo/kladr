@@ -3,6 +3,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
 import sys
+import pprint
 
 from dataclasses import dataclass
 
@@ -623,9 +624,7 @@ def createDataTables():
         DROP TABLE IF EXISTS rus_shot_tbl;
         """,
         """
-        SELECT DISTINCT code, 
-        index, street_full, street_shot, street_metaphone, reg_pr, region, dis_pr, district,
-        tow_pr, town, loc_pr, locality, str_pr, street 
+        SELECT DISTINCT code, index, street_shot, street_metaphone
         INTO rus_shot_tbl 
         FROM t_tbl;
         """,
@@ -633,7 +632,7 @@ def createDataTables():
         DROP TABLE IF EXISTS rus_shot_region_tbl;
         """,
            """
-           SELECT DISTINCT region
+           SELECT DISTINCT region, substring(code, 1, 2) as code
            INTO rus_shot_region_tbl 
            FROM t_tbl;
            """,
@@ -749,21 +748,182 @@ def createDataTables():
     # execute command list
     db.executeCommand(commands)
     
+def mostRecentEstimates():
+	query = """
+		SELECT DISTINCT r.region, r.code
+		FROM rus_shot_region_tbl AS r
+		LEFT JOIN rus_shot_tbl AS s
+		ON substring(s.code, 1, 2) = r.code;
+	"""
+	queryParameters = {}
+	rg = [{'rg': 'Москва', 'value': 12678079},
+		  {'rg': 'Московская область', 'value': 7690863},
+		  {'rg': 'Краснодарский край', 'value': 5675462},
+		  {'rg': 'Санкт-Петербург', 'value': 5398064},
+		  {'rg': 'Свердловская область', 'value': 4310681},
+		  {'rg': 'Ростовская область', 'value': 4197821},
+		  {'rg': 'Республика Башкортостан', 'value': 4038151},
+		  {'rg': 'Республика Татарстан', 'value': 3902642},
+		  {'rg': 'Тюменская область(с ХМАО и ЯНАО)', 'value': 3756536},
+		  {'rg': 'Челябинская область', 'value': 3466369},
+		  {'rg': 'Нижегородская область', 'value': 3202946},
+		  {'rg': 'Самарская область', 'value': 3179532},
+		  {'rg': 'Республика Дагестан', 'value': 3110858},
+		  {'rg': 'Красноярский край', 'value': 2866255},
+		  {'rg': 'Ставропольский край', 'value': 2803573},
+		  {'rg': 'Новосибирская область', 'value': 2798170},
+		  {'rg': 'Кемеровская область', 'value': 2657854},
+		  {'rg': 'Пермский край', 'value': 2599260},
+		  {'rg': 'Волгоградская область', 'value': 2491036},
+		  {'rg': 'Саратовская область', 'value': 2421895},
+		  {'rg': 'Иркутская область', 'value': 2391193},
+		  {'rg': 'Воронежская область', 'value': 2324205},
+		  {'rg': 'Алтайский край', 'value': 2317153},
+		  {'rg': 'Оренбургская область', 'value': 1956835},
+		  {'rg': 'Омская область', 'value': 1926665},
+		  {'rg': 'Республика Крым', 'value': 1912622},
+		  {'rg': 'Приморский край', 'value': 1895868},
+		  {'rg': 'Ленинградская область', 'value': 1875872},
+		  {'rg': 'Ханты-Мансийский Автономный округ - Югра', 'value': 1674676},
+		  {'rg': 'Белгородская область', 'value': 1549151},
+		  {'rg': 'Удмуртская Республика', 'value': 1500955},
+		  {'rg': 'Чеченская Республика', 'value': 1478726},
+		  {'rg': 'Тульская область', 'value': 1466127},
+		  {'rg': 'Владимирская область', 'value': 1358416},
+		  {'rg': 'Хабаровский край', 'value': 1315643},
+		  {'rg': 'Пензенская область', 'value': 1305563},
+		  {'rg': 'Кировская область', 'value': 1262402},
+		  {'rg': 'Тверская область', 'value': 1260379},
+		  {'rg': 'Ярославская область', 'value': 1253389},
+		  {'rg': 'Ульяновская область', 'value': 1229824},
+		  {'rg': 'Чувашская Республика', 'value': 1217818},
+		  {'rg': 'Брянская область', 'value': 1192491},
+		  {'rg': 'Вологодская область', 'value': 1160445},
+		  {'rg': 'Липецкая область', 'value': 1139371},
+		  {'rg': 'Архангельская область (с НАО)', 'value': 1136535},
+		  {'rg': 'Рязанская область', 'value': 1108847},
+		  {'rg': 'Курская область', 'value': 1104008},
+		  {'rg': 'Томская область', 'value': 1079271},
+		  {'rg': 'Забайкальский край', 'value': 1059700},
+		  {'rg': 'Калининградская область', 'value': 1012512},
+		  {'rg': 'Тамбовская область', 'value': 1006748},
+		  {'rg': 'Астраханская область', 'value': 1005782},
+		  {'rg': 'Калужская область', 'value': 1002575},
+		  {'rg': 'Ивановская область', 'value': 997135},
+		  {'rg': 'Республика Бурятия', 'value': 985937},
+		  {'rg': 'Республика Саха (Якутия)', 'value': 971996},
+		  {'rg': 'Смоленская область', 'value': 934889},
+		  {'rg': 'Кабардино-Балкарская Республика', 'value': 868350},
+		  {'rg': 'Курганская область', 'value': 827166},
+		  {'rg': 'Республика Коми', 'value': 820473},
+		  {'rg': 'Республика Мордовия', 'value': 790197},
+		  {'rg': 'Амурская область', 'value': 790044},
+		  {'rg': 'Мурманская область', 'value': 741404},
+		  {'rg': 'Орловская область', 'value': 733498},
+		  {'rg': 'Республика Северная Осетия — Алания', 'value': 696837},
+		  {'rg': 'Республика Марий Эл', 'value': 679417},
+		  {'rg': 'Костромская область', 'value': 633385},
+		  {'rg': 'Псковская область', 'value': 626115},
+		  {'rg': 'Республика Карелия', 'value': 614064},
+		  {'rg': 'Новгородская область', 'value': 596508},
+		  {'rg': 'Ямало-Ненецкий автономный округ', 'value': 544444},
+		  {'rg': 'Республика Хакасия', 'value': 534262},
+		  {'rg': 'Республика Ингушетия', 'value': 507061},
+		  {'rg': 'Сахалинская область', 'value': 488257},
+		  {'rg': 'Карачаево-Черкесская Республика', 'value': 465528},
+		  {'rg': 'Республика Адыгея', 'value': 463088},
+		  {'rg': 'Севастополь', 'value': 449138},
+		  {'rg': 'Республика Тыва', 'value': 327383},
+		  {'rg': 'Камчатский край', 'value': 313016},
+		  {'rg': 'Республика Калмыкия', 'value': 271135},
+		  {'rg': 'Республика Алтай', 'value': 220181},
+		  {'rg': 'Еврейская автономная область', 'value': 158305},
+		  {'rg': 'Магаданская область', 'value': 140149},
+		  {'rg': 'Архангельская область без НАО', 'value': 92424},
+		  {'rg': 'Тюменская область без ХМАО и ЯНАО', 'value': 53746},
+		  {'rg': 'Чукотский автономный округ', 'value': 50288},
+		  {'rg': 'Ненецкий автономный округ', 'value': 44111}
+		  ]
+	conn = None
+	res = []
+	try:
+		params = db.configDbConnection()
+		conn = db.psycopg2.connect(**params)
+		cur = conn.cursor(cursor_factory = db.RealDictCursor)
+		cur.execute(query, queryParameters)
+		#regions = [v['rg'] for v in rg]
+		for i, row in enumerate(db.iterRow(cur, 10)):
+			region = row['region'].split(' - ')[0].split(' -')[0].split(' /')[0]
+			found = False
+			for v in rg:
+				if v['rg'].find(region) != -1:
+					res.append({'region': region,
+								'sortOrder': 0,
+								'recentEstimates': v['value'],
+								'regionCode': row['code']
+								})
+					found = True
+			if not found:
+				print(f'not found {region}')
+		res.sort(key = lambda x: (-x['recentEstimates']))
+		with open('most_recent_estimates.txt', 'w') as f:
+			for i, v in enumerate(res):
+				v['sortOrder'] = i + 1
+				r = v['region']
+				s = v['sortOrder']
+				e = v['recentEstimates']
+				c = v['regionCode']
+				f.write(f'{r},{s},{e},{c}\n')
+		cur.close()
+	except (Exception, db.psycopg2.DatabaseError) as error:
+		print(error)
+	finally:
+		if conn is not None:
+			conn.close()
+	return res
+
+def getMostRecentEstimates():
+	# create command list
+	commands = [
+		"""
+		DROP TABLE IF EXISTS estimates_tbl;
+		""",
+		"""
+		CREATE TABLE estimates_tbl (
+			region            varchar(100) NOT NULL,
+			sort_order        integer NOT NULL,
+			recent_estimates  integer NOT NULL,
+			region_code       char(2) NOT NULL
+		);
+		""",
+	]
+	# execute command list
+	db.executeCommand(commands)
+	conn = None
+	try:
+		# read the connection parameters
+		params = db.configDbConnection()
+		# connect to the PostgreSQL server
+		conn = db.psycopg2.connect(**params)
+		cur = conn.cursor()
+		# store data from file to database
+		with open('most_recent_estimates.txt', 'r') as f:
+			cur.copy_from(f, 'estimates_tbl', sep=',',
+						  columns=('region', 'sort_order', 'recent_estimates', 'region_code'))
+		# close communication with the PostgreSQL database server
+		cur.close()
+		# commit the changes
+		conn.commit()
+	except (Exception, db.psycopg2.DatabaseError) as error:
+		print(error)
+	finally:
+		if conn is not None:
+			conn.close()
+
 if __name__ == '__main__':
-    query = """
-        SELECT *
-        FROM kladr_tbl
-        WHERE code LIKE '%00000000000'
-        LIMIT 20
-    """
-    query = """
-        SELECT N.socrname, K.name, K.code
-        FROM kladr_tbl AS K
-        INNER JOIN socrbase_tbl AS N on N.scname = K.socr
-        WHERE N.level = '1'
-        LIMIT 10
-    """
-    timeStart = datetime.datetime.today()
-    createDataTables()
-    print(f'execution time: {datetime.datetime.today() - timeStart}')
+	timeStart = datetime.datetime.today()
+	# mostRecentEstimates()
+	getMostRecentEstimates()
+	# createDataTables()
+	print(f'execution time: {datetime.datetime.today() - timeStart}')
     
