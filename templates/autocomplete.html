@@ -148,23 +148,27 @@
 				},
 				minLength : 2,
 				select: function(event, ui) {
-					if (searchMielofon.street == "n") {
-						searchMielofon.street = "y";
-						searchMielofon.v_street = ui.item.value;
-						searchMielofon.house = "n";
-						searchMielofon.v_house = "n";
-						searchMielofon.full = "n";
-						searchMielofon.code = ui.item.key.substring(1);
-						$("#mielofonWarning").text("Select house number");
-						$("#searchBoxMielofon").css("background","#FFE6FF");
-					} else {
-						if (searchMielofon.house == "n") {
-							searchMielofon.full = "y";
-							searchMielofon.house = "y";
-							searchMielofon.v_house = ui.item.value;
+					if (ui.item.key !== "-1") {
+						if (searchMielofon.street == "n") {
+							searchMielofon.street = "y";
+							searchMielofon.v_street = ui.item.value;
+							searchMielofon.house = "n";
+							searchMielofon.v_house = "n";
+							searchMielofon.full = "n";
+							searchMielofon.code = ui.item.key.substring(1);
+							$("#mielofonWarning").text("Select house number");
+							$("#searchBoxMielofon").css("background","#FFE6FF");
+						} else {
+							if (searchMielofon.house == "n") {
+								searchMielofon.full = "y";
+								searchMielofon.house = "y";
+								searchMielofon.v_house = ui.item.value;
+							}
 						}
+						resultLog("Selected: " + ui.item.value);
+					} else {
+						resultLog("Not found: " + ui.item.value)
 					}
-					resultLog("Selected: " + ui.item.value);
 				}
 			});
 		});
@@ -197,11 +201,6 @@
 						},
 						success : function(data) {
 							$("#searchBoxTrgm").css("background","#FFF");
-							//response(data);
-							//for (let item of data) {
-							//	if (item.key.length < 10)
-							//		console.log(item.key, '=', item.value);
-							//}
 							let arr = [];
 							response($.map(data, function(item) {
 								switch(item.key) {
@@ -242,23 +241,27 @@
 				},
 				minLength : 2,
 				select: function(event, ui) {
-					if (searchTrgm.street == "n") {
-						searchTrgm.street = "y";
-						searchTrgm.v_street = ui.item.value;
-						searchTrgm.house = "n";
-						searchTrgm.v_house = "n";
-						searchTrgm.full = "n";
-						searchTrgm.code = ui.item.key.substring(1);
-						$("#trgmWarning").text("Select house number");
-						$("#searchBoxTrgm").css("background","#FFE6FF");
-					} else {
-						if (searchTrgm.house == "n") {
-							searchTrgm.full = "y";
-							searchTrgm.house = "y";
-							searchTrgm.v_house = ui.item.value;
+					if (ui.item.key !== "-1") {
+						if (searchTrgm.street == "n") {
+							searchTrgm.street = "y";
+							searchTrgm.v_street = ui.item.value;
+							searchTrgm.house = "n";
+							searchTrgm.v_house = "n";
+							searchTrgm.full = "n";
+							searchTrgm.code = ui.item.key.substring(1);
+							$("#trgmWarning").text("Select house number");
+							$("#searchBoxTrgm").css("background","#FFE6FF");
+						} else {
+							if (searchTrgm.house == "n") {
+								searchTrgm.full = "y";
+								searchTrgm.house = "y";
+								searchTrgm.v_house = ui.item.value;
+							}
 						}
+						resultLog("Selected: " + ui.item.value);
+					} else {
+						resultLog("Not found: " + ui.item.value)
 					}
-					resultLog("Selected: " + ui.item.value);
 				}
 			});
 		});
