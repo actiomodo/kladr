@@ -587,7 +587,7 @@ def createDataTables():
         DROP TABLE IF EXISTS t_tbl;
         """,
         """ 
-        SELECT DISTINCT s.code, s1.index, d.name AS doma,
+        SELECT DISTINCT s.code, s1.index, d.name AS doma, e.sort_order AS sort,
         replace(replace(concat_ws(', ', concat_ws(' ', lower(sb1.scname), k1.name), 
         concat_ws(' ', lower(sb2.scname), k2.name), 
         concat_ws(' ', lower(sb3.scname), k3.name), 
@@ -600,7 +600,7 @@ def createDataTables():
         lower(sb3.socrname) AS tow_pr, k3.name AS town, 
         lower(sb4.socrname) AS loc_pr, k4.name AS locality, 
         lower(sb5.socrname) AS str_pr, s1.name AS street,
-		metaphone(lower(replace(replace(concat_ws(' ', k3.name, k1.name, s1.name, k2.name, k4.name),
+		metaphone(lower(replace(replace(concat_ws(' ', k1.name, k2.name, k3.name, k4.name, s1.name),
 		'  ', ' '), '  ', ' '))) AS street_metaphone
         INTO t_tbl                       
         FROM street_code_tbl AS s
@@ -614,8 +614,10 @@ def createDataTables():
                 LEFT JOIN socrbase_tbl AS sb3 ON k3.socr = sb3.scname AND sb3.level = '3' 
             LEFT JOIN kladr_tbl AS k4 ON s.locality = k4.code
                 LEFT JOIN socrbase_tbl AS sb4 ON k4.socr = sb4.scname AND sb4.level = '4'
-            LEFT JOIN doma_tbl AS d ON s.code = left(d.code, 17)   
-        WHERE d.name != '';
+            LEFT JOIN doma_tbl AS d ON s.code = left(d.code, 17)
+            LEFT JOIN estimates_tbl AS e ON e.region_code = left(s.code, 2)
+        WHERE d.name != ''
+		ORDER BY e.sort_order, street;
         """,
         """ 
         DROP TABLE IF EXISTS street_code_tbl;
@@ -624,16 +626,17 @@ def createDataTables():
         DROP TABLE IF EXISTS rus_shot_tbl;
         """,
         """
-        SELECT DISTINCT code, index, street_shot, street_metaphone
+        SELECT DISTINCT code, index, street, street_full, street_shot, street_metaphone, sort
         INTO rus_shot_tbl 
-        FROM t_tbl;
+        FROM t_tbl
+		ORDER BY sort, street;
         """,
         """
         DROP TABLE IF EXISTS rus_shot_region_tbl;
         """,
            """
            SELECT DISTINCT region, substring(code, 1, 2) as code
-           INTO rus_shot_region_tbl 
+           INTO rus_shot_region_tbl
            FROM t_tbl;
            """,
               """
@@ -737,7 +740,7 @@ def createDataTables():
 		SELECT *
 		INTO msk_shot_tbl
 		FROM rus_shot_tbl
-		WHERE region = 'Москва';
+		WHERE left(code, 2) = '77';
 		""",
 		"""
 		CREATE INDEX msk_trgm_idx 
@@ -924,6 +927,6 @@ if __name__ == '__main__':
 	timeStart = datetime.datetime.today()
 	# mostRecentEstimates()
 	getMostRecentEstimates()
-	# createDataTables()
+	createDataTables()
 	print(f'execution time: {datetime.datetime.today() - timeStart}')
     

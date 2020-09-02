@@ -57,37 +57,36 @@ def getStreets(request):
 		ORDER BY sml DESC
         LIMIT 10
     """
-	value = transliteration(request.form['q'])
+	value = transliteration(queryNormalization(request.form['q'])).strip()
 	if request.form['v'] == 'r_metaphone':
-		if value.strip().find(' ') != -1:
-			valueSplit = value.split(' ')
+		if ' ' in value:
+			pos = value.find(' ')
 			query = """
-				WITH word1 AS (SELECT code, street_full, street_metaphone
+				WITH first_word AS (SELECT code, sort, street_full, street_metaphone
 							FROM rus_shot_tbl
 							WHERE street_metaphone
 							LIKE '%%'||regexp_replace(metaphone(%(value1)s),'\s','%%','g')||'%%'
 							)
-				SELECT code, street_full AS street
-				FROM word1
+				SELECT code, sort, street_full AS street
+				FROM first_word
 				WHERE street_metaphone
 				LIKE '%%'||regexp_replace(metaphone(%(value2)s),'\s','%%','g')||'%%'
 				LIMIT 10
 			"""
-			queryParameters = {'value1': queryNormalization(valueSplit[0]).lower(),
-							   'value2': queryNormalization(valueSplit[1]).lower()}
+			queryParameters = {'value1': value[:pos], 'value2': value[pos + 1:]}
 		else:
 			query = """
-				SELECT code, street_full AS street FROM rus_shot_tbl
+				SELECT code, sort, street_full AS street FROM rus_shot_tbl
 				WHERE street_metaphone LIKE
 				'%%'||regexp_replace(metaphone(%(value)s),'\s','%%','g')||'%%'
 				LIMIT 10
 			"""
-			queryParameters = {'value': queryNormalization(value).lower()}
+			queryParameters = {'value': value}
 	elif request.form['v'] == 'm_trgm':
-		if value.find(']') != -1:
+		if ']' in value:
 			value = value.split(']')[1].strip()
 		value = ''.join(['%', value, '%'])
-		queryParameters = {'value': queryNormalization(value).lower()}
+		queryParameters = {'value': transliteration(queryNormalization(value))}
 	conn = None
 	res = []
 	_code = request.form['_id']
@@ -135,6 +134,7 @@ def getStreets(request):
 	res.append({'key': '_h', 'value': _house})
 	res.append({'key': '_vh', 'value': _v_house})
 	res.append({'key': '_f', 'value': _full})
+	resFoundCount = 0
 	try:
 		params = db.configDbConnection()
 		conn = db.psycopg2.connect(**params)
@@ -144,6 +144,7 @@ def getStreets(request):
 		#logger.debug(cur.mogrify(query, queryParameters))
 		cur.execute(query, queryParameters)
 		for i, row in enumerate(db.iterRow(cur, 10)):
+			resFoundCount += 1
 			code = ''.join([str(i), row['code']])
 			if request.form['v'] == 'm_trgm':
 				if _street == 'y':
@@ -161,6 +162,8 @@ def getStreets(request):
 				street = row['street']
 			res.append({'key': code, 'value': f'{street}'})
 		cur.close()
+		if resFoundCount == 0:
+			res.append({'key': '-1', 'value': f'Адрес не найден'})
 	except (Exception, db.psycopg2.DatabaseError) as error:
 		print(error)
 	finally:
@@ -179,31 +182,37 @@ def transliteration(query):
 	return ''.join([literas.get(v, v) for v in query])
 
 def queryNormalization(query):
-	scname = ["Аобл ","АО ","г ","г.ф.з. ","край ","обл ","Респ ","АО ","пл-ка ","пл ",
-			  "вн.тер. г. ","г.о. ","м.р-н ","п ","р-н ","у ","дп ","п ","п/ст ","проезд ",
-			  "кп ","п ","пгт ","п/о ","рп ","с/а ","с/о ","с/мо ","с/п ","с/с ","п-к ","п/о ",
-			  "аал ","автодорога ","высел ","г-к ","гп ","дп ","км ","коса ","мгстр. ", 
-			  "дп. ","д ","жилзона ","стр ","сзд. ","туп ","заезд ","кв-л ","просека ","пр-кт ",
-			  "жилрайон ","зим. ","кв-л ","киш. ","кордон ","кп ","лпх ","пер ","п/р ","платф ",
-			  "м ","мкр ","нп ","нп. ","п/р ","погост ","п ","пгт ","п/ст ","п. ж/д ст. ", 
-			  "пос.рзд ","починок ","п/о ","промзона ","рп ","снт ","с ","сп ","сп. ","сл ", 
-			  "ст-ца ","ст ","а/я ","аллея ","б-р ","взв. ","гск ","днп ","д ","дор ","ж/д_оп ", 
-			  "м ","местность ","месторожд. ","мкр ","мост ","наб ","нп ","н/п ","парк ", 
-			  "рзд ","р-н ","ряд ","ряды ","сад ","снт ","с/т ","с ","сл ","спуск ","ст ", 
-			  "ул ","ус. ","уч-к ","ф/х ","х ","ш ","ю. ","влд. ","ДОМ ","двлд. ","зд. ", 
-			  "к. ","кот. ","ОНС ","пав. ","соор. ","стр. ","шахта ",",","аллея ","арбан ","аул ",
-			  "балка ","берег ","бугор ","бульвар ","вал ","взвоз ","владение ","волость ","въезд ",
-			  "выселки ","город ","городок ","городской округ ","деревня ","дом ","домовладение ",
-			  "дорога ","заимка ","здание ","зимовье ","зона ","казарма ","квартал ","километр ","кишлак ",
-			  "кольцо ","кордон ","корпус ","коса ","котельная ","край ","курортный поселок ","леспромхоз ",
-			  "магистраль ","массив ","маяк ","местечко ","микрорайон ","населенный пункт ","округ ","остров ",
-			  "павильон ","переезд ","переулок ","площадь ","полустанок ","порт ","поселение ","поселок ",
-			  "проселок ","проспект ","проулок ","район ","республика ","село ","сквер ","станица ","станция ",
-			  "строение ","съезд ","территория ","тупик ","улица ","улус ","усадьба ","участок ","ферма ",
-			  "хутор ","шоссе ","юрты "]
+	scname = ['Аобл','АО','г','г.ф.з.','край','обл','Респ','АО','пл-ка','пл','пл.',
+			  'вн.тер. г.','г.о.','м.р-н','р-н','у','дп','п.','п/ст','проезд',
+			  'кп','пгт','п/о','рп','с/а','с/о','с/мо','с/п','с/с','п-к','п/о',
+			  'аал','автодорога','высел','г-к','гп','дп','км','коса','мгстр.',
+			  'дп.','д.','жилзона','стр','сзд.','туп','заезд','кв-л','просека','пр-кт',
+			  'жилрайон','зим.','кв-л','киш.','кордон','кп','лпх','пер','п/р','платф',
+			  'м','мкр','нп','нп.','п/р','п','пгт','п/ст','п. ж/д ст.',
+			  'пос.рзд','починок','п/о','промзона','рп','снт','с.','сп','сп.','сл',
+			  'ст-ца','ст','а/я','б-р','взв.','гск','днп','д','дор','ж/д_оп',
+			  'м','местность','месторожд.','мкр','мост','наб','нп','н/п','парк','обл.',
+			  'рзд','р-н','ряд','ряды','сад','снт','с/т','с','сл','спуск','ст','ул.',
+			  'ул','ус.','уч-к','ф/х','х','ш','ю.','влд.','ДОМ','двлд.','зд.','г.','ш.',
+			  'к.','кот.','ОНС','пав.','соор.','стр.','шахта','арбан','аул',
+			  'балка','берег','бугор','вал','взвоз','владение','волость','въезд',
+			  'выселки','город','городок','городской округ','деревня','дом','домовладение',
+			  'дорога','заимка','здание','зимовье','зона','казарма','квартал','километр','кишлак',
+			  'кольцо','кордон','корпус','коса','котельная','край','курортный поселок','леспромхоз',
+			  'магистраль','массив','маяк','местечко','микрорайон','населенный пункт','округ','остров',
+			  'павильон','переезд','переулок','площадь','полустанок','порт','поселение','поселок',
+			  'проселок','проспект','проулок','район','республика','село','сквер','станица','станция',
+			  'строение','съезд','территория','тупик','улица','улус','усадьба','участок','ферма',
+			  'хутор','шоссе','юрты']
 	for v in scname:
-		query = query.replace(v, "")
-	res = query.strip()
+		for x in range(1, len(v) + 1):
+			toReplace = ''.join([' ', v[:x], ' '])
+			query = query.replace(toReplace, ' ')
+		query = query.replace('.', '').replace(',', '')
+		toReplace = ''.join([v, ' '])
+		if query.find(v) == 0:
+			query = query.replace(toReplace, '')
+	res = query.strip().lower()
 	return res
 
 if __name__ == '__main__':
