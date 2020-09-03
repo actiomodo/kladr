@@ -26,17 +26,15 @@ def upload_form():
 def search():
 	res = []
 	if request.method == 'POST':
-		res = getStreets(request)
-	#pprint.pprint(f'response: {str(res)[:40]}')
-	#print(request.form)
-	#print(f'term: {term}, res: {len(res)}, time: {datetime.datetime.today() - timeStart}')
-	#pprint.pprint(res)
-	resp = jsonify(res)
+		res = getStreets(request, 1)
+		if res[1] == 0 and len(request.form['q']) > 2:
+			res = getStreets(request, 2)
+	resp = jsonify(res[0])
 	resp.headers['Access-Control-Allow-Origin'] = '*'
 	resp.status_code = 200
 	return resp
 
-def getStreets(request):
+def getStreets(request, attempt):
 	timeStart = datetime.datetime.now()
 	""" query data """
 	query = """
@@ -57,16 +55,19 @@ def getStreets(request):
 		ORDER BY sml DESC
         LIMIT 10
     """
-	value = transliteration(queryNormalization(request.form['q'])).strip()
+	q = request.form['q']
+	value = queryNormalization(transliteration(q[:len(q) - attempt + 1])).strip()
 	if request.form['v'] == 'r_metaphone':
 		if ' ' in value:
 			pos = value.find(' ')
 			query = """
-				WITH first_word AS (SELECT code, sort, street_full, street_metaphone
-							FROM rus_shot_tbl
-							WHERE street_metaphone
-							LIKE '%%'||regexp_replace(metaphone(%(value1)s),'\s','%%','g')||'%%'
-							)
+				WITH first_word AS
+					(
+					SELECT code, sort, street_full, street_metaphone
+					FROM rus_shot_tbl
+					WHERE street_metaphone
+					LIKE '%%'||regexp_replace(metaphone(%(value1)s),'\s','%%','g')||'%%'
+					)
 				SELECT code, sort, street_full AS street
 				FROM first_word
 				WHERE street_metaphone
@@ -86,7 +87,7 @@ def getStreets(request):
 		if ']' in value:
 			value = value.split(']')[1].strip()
 		value = ''.join(['%', value, '%'])
-		queryParameters = {'value': transliteration(queryNormalization(value))}
+		queryParameters = {'value': value}
 	conn = None
 	res = []
 	_code = request.form['_id']
@@ -172,7 +173,7 @@ def getStreets(request):
 	timeDelta = datetime.datetime.now() - timeStart
 	timeDeltaMicroseconds = int(timeDelta.microseconds // 1e3 + timeDelta.seconds * 1e3)
 	res.append({'key': '_t', 'value': f'{timeDeltaMicroseconds}'})
-	return res
+	return (res, resFoundCount)
 
 def transliteration(query):
 	literas = {'z': 'я', 'x':' ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь', ',': 'б',
@@ -182,19 +183,19 @@ def transliteration(query):
 	return ''.join([literas.get(v, v) for v in query])
 
 def queryNormalization(query):
-	scname = ['Аобл','АО','г','г.ф.з.','край','обл','Респ','АО','пл-ка','пл','пл.',
+	scname = ['Аобл','АО','г.ф.з.','край','обл','Респ','АО','пл-ка','пл','пл.',
 			  'вн.тер. г.','г.о.','м.р-н','р-н','у','дп','п.','п/ст','проезд',
 			  'кп','пгт','п/о','рп','с/а','с/о','с/мо','с/п','с/с','п-к','п/о',
 			  'аал','автодорога','высел','г-к','гп','дп','км','коса','мгстр.',
-			  'дп.','д.','жилзона','стр','сзд.','туп','заезд','кв-л','просека','пр-кт',
+			  'дп.','жилзона','стр','сзд.','туп','заезд','кв-л','просека','пр-кт',
 			  'жилрайон','зим.','кв-л','киш.','кордон','кп','лпх','пер','п/р','платф',
-			  'м','мкр','нп','нп.','п/р','п','пгт','п/ст','п. ж/д ст.',
-			  'пос.рзд','починок','п/о','промзона','рп','снт','с.','сп','сп.','сл',
+			  'м','мкр','нп','п/р','п','пгт','п/ст','п. ж/д ст.',
+			  'пос.рзд','починок','п/о','промзона','рп','снт','сп','сл',
 			  'ст-ца','ст','а/я','б-р','взв.','гск','днп','д','дор','ж/д_оп',
 			  'м','местность','месторожд.','мкр','мост','наб','нп','н/п','парк','обл.',
-			  'рзд','р-н','ряд','ряды','сад','снт','с/т','с','сл','спуск','ст','ул.',
-			  'ул','ус.','уч-к','ф/х','х','ш','ю.','влд.','ДОМ','двлд.','зд.','г.','ш.',
-			  'к.','кот.','ОНС','пав.','соор.','стр.','шахта','арбан','аул',
+			  'рзд','р-н','ряд','ряды','сад','снт','с/т','с','сл','спуск','ст',
+			  'ул','ус','уч-к','ф/х','х','ш','ю','влд','ДОМ','двлд','зд','г',
+			  'к.','кот','ОНС','пав','соор','стр','шахта','арбан','аул',
 			  'балка','берег','бугор','вал','взвоз','владение','волость','въезд',
 			  'выселки','город','городок','городской округ','деревня','дом','домовладение',
 			  'дорога','заимка','здание','зимовье','зона','казарма','квартал','километр','кишлак',
@@ -205,12 +206,16 @@ def queryNormalization(query):
 			  'строение','съезд','территория','тупик','улица','улус','усадьба','участок','ферма',
 			  'хутор','шоссе','юрты']
 	for v in scname:
-		for x in range(1, len(v) + 1):
-			toReplace = ''.join([' ', v[:x], ' '])
+		name = ''.join([v, '.'])
+		for x in range(1, len(name) + 1):
+			toReplace = ''.join([' ', name[:x], ' '])
 			query = query.replace(toReplace, ' ')
-		query = query.replace('.', '').replace(',', '')
+		query = query.replace('.', '').replace(',', '').replace('-', ' ')
 		toReplace = ''.join([v, ' '])
-		if query.find(v) == 0:
+		if query.find(toReplace) == 0:
+			query = query.replace(toReplace, '')
+		toReplace = ''.join([name, ' '])
+		if query.find(toReplace) == 0:
 			query = query.replace(toReplace, '')
 	res = query.strip().lower()
 	return res
