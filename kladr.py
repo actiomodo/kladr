@@ -629,6 +629,7 @@ def createDataTables():
         SELECT DISTINCT code, index, street, street_full, street_shot, street_metaphone, sort
         INTO rus_shot_tbl 
         FROM t_tbl
+		WHERE street_shot NOT LIKE '%автодорог%'
 		ORDER BY sort, street;
         """,
         """

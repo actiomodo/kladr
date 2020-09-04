@@ -19,7 +19,7 @@ app = Flask(__name__)
 app.secret_key = 'alligator'
 
 @app.route('/')
-def upload_form():
+def uploadForm():
 	return render_template('autocomplete.html')
 
 @app.route('/search', methods=['POST'])
@@ -35,6 +35,7 @@ def search():
 	return resp
 
 def getStreets(request, attempt):
+	res = []
 	timeStart = datetime.datetime.now()
 	""" query data """
 	query = """
@@ -57,6 +58,7 @@ def getStreets(request, attempt):
     """
 	q = request.form['q']
 	value = queryNormalization(transliteration(q[:len(q) - attempt + 1])).strip()
+	res.append({'key': '_norm', 'value': ''.join(['[S] ', value])})
 	if request.form['v'] == 'r_metaphone':
 		if ' ' in value:
 			pos = value.find(' ')
@@ -89,7 +91,6 @@ def getStreets(request, attempt):
 		value = ''.join(['%', value, '%'])
 		queryParameters = {'value': value}
 	conn = None
-	res = []
 	_code = request.form['_id']
 	_street = request.form['_s']
 	_v_street = request.form['_vs']
@@ -176,18 +177,18 @@ def getStreets(request, attempt):
 	return (res, resFoundCount)
 
 def transliteration(query):
-	literas = {'z': 'я', 'x':' ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь', ',': 'б',
-			   '.': 'ю', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о',
+	literas = {'z': 'я', 'x':' ч', 'c': 'с', 'v': 'м', 'b': 'и', 'n': 'т', 'm': 'ь', '<': 'б',
+			   '>': 'ю', 'a': 'ф', 's': 'ы', 'd': 'в', 'f': 'а', 'g': 'п', 'h': 'р', 'j': 'о',
 			   'k': 'л', 'l': 'д', ';': 'ж', '\'': 'э', 'q': 'й', 'w': 'ц', 'e': 'у', 'r': 'к',
-			   't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з', '[': 'х', ' ': ' '}
+			   't': 'е', 'y': 'н', 'u': 'г', 'i': 'ш', 'o': 'щ', 'p': 'з', '{': 'х', ' ': ' '}
 	return ''.join([literas.get(v, v) for v in query])
 
 def queryNormalization(query):
-	scname = ['Аобл','АО','г.ф.з.','край','обл','Респ','АО','пл-ка','пл','пл.',
-			  'вн.тер. г.','г.о.','м.р-н','р-н','у','дп','п.','п/ст','проезд',
+	scname = ['Аобл','АО','г.ф.з.','край','обл','Респ','АО','пл-ка','пл',
+			  'вн.тер. г.','г.о.','м.р-н','р-н','у','дп','п.','п/ст',
 			  'кп','пгт','п/о','рп','с/а','с/о','с/мо','с/п','с/с','п-к','п/о',
 			  'аал','автодорога','высел','г-к','гп','дп','км','коса','мгстр.',
-			  'дп.','жилзона','стр','сзд.','туп','заезд','кв-л','просека','пр-кт',
+			  'дп.','жилзона','стр','сзд.','туп','кв-л','просека','пр-кт','кт',
 			  'жилрайон','зим.','кв-л','киш.','кордон','кп','лпх','пер','п/р','платф',
 			  'м','мкр','нп','п/р','п','пгт','п/ст','п. ж/д ст.',
 			  'пос.рзд','починок','п/о','промзона','рп','снт','сп','сл',
@@ -195,8 +196,8 @@ def queryNormalization(query):
 			  'м','местность','месторожд.','мкр','мост','наб','нп','н/п','парк','обл.',
 			  'рзд','р-н','ряд','ряды','сад','снт','с/т','с','сл','спуск','ст',
 			  'ул','ус','уч-к','ф/х','х','ш','ю','влд','ДОМ','двлд','зд','г',
-			  'к.','кот','ОНС','пав','соор','стр','шахта','арбан','аул',
-			  'балка','берег','бугор','вал','взвоз','владение','волость','въезд',
+			  'к.','кот','ОНС','пав','соор','стр','шахта','арбан','аул','заезд',
+			  'балка','берег','бугор','вал','взвоз','владение','волость','въезд','проезд',
 			  'выселки','город','городок','городской округ','деревня','дом','домовладение',
 			  'дорога','заимка','здание','зимовье','зона','казарма','квартал','километр','кишлак',
 			  'кольцо','кордон','корпус','коса','котельная','край','курортный поселок','леспромхоз',
@@ -212,10 +213,12 @@ def queryNormalization(query):
 			query = query.replace(toReplace, ' ')
 		query = query.replace('.', '').replace(',', '').replace('-', ' ')
 		toReplace = ''.join([v, ' '])
-		if query.find(toReplace) == 0:
+		pos = query.find(toReplace)
+		if pos == 0:
 			query = query.replace(toReplace, '')
 		toReplace = ''.join([name, ' '])
-		if query.find(toReplace) == 0:
+		pos = query.find(toReplace)
+		if pos == 0:
 			query = query.replace(toReplace, '')
 	res = query.strip().lower()
 	return res
